@@ -96,7 +96,6 @@ class NumbersScreen extends StatelessWidget {
   }
 }
 
-
 class EntryScreen extends StatefulWidget {
   final String number;
 
@@ -109,22 +108,40 @@ class EntryScreen extends StatefulWidget {
 class _EntryScreenState extends State<EntryScreen> {
   final TextEditingController controller = TextEditingController();
 
-  final List<Map<String, String>> entries = [];
+  List<Map<String, dynamic>> entries = [];
 
-  void addEntry() {
+  @override
+  void initState() {
+    super.initState();
+    loadEntries();
+  }
+
+  Future<void> loadEntries() async {
+    final data = await AppDatabase.getEntries(widget.number);
+
+    setState(() {
+      entries = data;
+    });
+  }
+
+  void addEntry() async {
     final text = controller.text.trim();
     if (text.isEmpty) return;
 
     final now = DateTime.now();
+    final time =
+        '${now.day}.${now.month}.${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
-    setState(() {
-      entries.insert(0, {
-        'text': text,
-        'time': '${now.day}.${now.month}.${now.year} '
-            '${now.hour}:${now.minute.toString().padLeft(2, '0')}',
-      });
-      controller.clear();
-    });
+    await AppDatabase.insertEntry(widget.number, text, time);
+
+    controller.clear();
+    loadEntries();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   @override
