@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'db/database.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 void main() {
   runApp(const WTOApp());
 }
@@ -138,6 +140,9 @@ class EntryScreen extends StatefulWidget {
 class _EntryScreenState extends State<EntryScreen> {
   final TextEditingController controller = TextEditingController();
 
+  File? selectedImage;
+  final picker = ImagePicker();
+
   List<Map<String, dynamic>> entries = [];
 
   @override
@@ -145,7 +150,23 @@ class _EntryScreenState extends State<EntryScreen> {
     super.initState();
     loadEntries();
   }
+@override
+void initState() {
+  super.initState();
+  loadEntries();
+}
 
+Future<void> pickImage() async {
+  final image = await picker.pickImage(
+    source: ImageSource.gallery,
+  );
+
+  if (image == null) return;
+
+  setState(() {
+    selectedImage = File(image.path);
+  });
+}
 void _editEntry(Map<String, dynamic> entry) {
   final editController = TextEditingController(text: entry['text']);
 
@@ -247,6 +268,15 @@ Widget build(BuildContext context) {
     ),
     body: Column(
       children: [
+
+        if (selectedImage != null)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Image.file(
+              selectedImage!,
+              height: 120,
+            ),
+          ),
         Expanded(
           child: ListView.builder(
             itemCount: entries.length,
@@ -281,12 +311,20 @@ Widget build(BuildContext context) {
                 ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: addEntry,
-                child: const Text('Dodaj'),
-              )
+              Column(
+                children: [
+                  IconButton(
+                    onPressed: pickImage,
+                    icon: const Icon(Icons.photo),
+                  ),
+                  ElevatedButton(
+                    onPressed: addEntry,
+                    child: const Text('Dodaj'),
+                  ),
+                ],
+              ),
             ],
-          ),
+          )
         )
       ],
     ),
