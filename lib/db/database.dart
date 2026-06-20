@@ -11,6 +11,17 @@ class AppDatabase {
     return _db!;
   }
 
+  static Future<int> getEntriesCount(String number) async {
+    final db = await database;
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM entries WHERE number = ?',
+      [number],
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   static Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'wto.db');
@@ -31,7 +42,11 @@ class AppDatabase {
     );
   }
 
-  static Future<void> insertEntry(String number, String text, String dateTime) async {
+  static Future<void> insertEntry(
+      String number,
+      String text,
+      String dateTime,
+      ) async {
     final db = await database;
 
     await db.insert('entries', {

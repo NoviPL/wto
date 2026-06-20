@@ -70,6 +70,7 @@ class NumbersScreen extends StatelessWidget {
     final numbers = [
       ...List.generate(99, (i) => '${301 + i}/$suffix'),
       ...List.generate(99, (i) => 'A${301 + i}/$suffix'),
+      ...List.generate(20, (i) => 'KOORDYNACJA${i + 1}/$suffix'),
     ];
 
     return Scaffold(
@@ -79,13 +80,42 @@ class NumbersScreen extends StatelessWidget {
       body: ListView.builder(
         itemCount: numbers.length,
         itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(numbers[index]),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EntryScreen(number: numbers[index]),
+          final number = numbers[index];
+
+          return FutureBuilder<int>(
+            future: AppDatabase.getEntriesCount(number),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+
+              return Card(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                child: ListTile(
+                  leading: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: count > 0 ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  title: Text(number),
+                  subtitle: Text(
+                    count > 0
+                        ? 'Liczba wpisów: $count'
+                        : 'Brak wpisów',
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EntryScreen(number: number),
+                      ),
+                    );
+                  },
                 ),
               );
             },
@@ -199,7 +229,7 @@ Widget build(BuildContext context) {
 
               return ListTile(
                 title: Text(entry['text'] ?? ''),
-                subtitle: Text(entry['time'] ?? ''),
+                subtitle: Text(entry['dataTime'] ?? ''),
                 onTap: () {
                   _editEntry(entry);
                 },
