@@ -150,11 +150,6 @@ class _EntryScreenState extends State<EntryScreen> {
     super.initState();
     loadEntries();
   }
-@override
-void initState() {
-  super.initState();
-  loadEntries();
-}
 
 Future<void> pickImage() async {
   final image = await picker.pickImage(
