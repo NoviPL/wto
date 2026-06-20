@@ -158,8 +158,8 @@ class _EntryScreenState extends State<EntryScreen> {
               itemBuilder: (context, index) {
                 final entry = entries[index];
                 return ListTile(
-                  title: Text(entry['text']!),
-                  subtitle: Text(entry['time']!),
+                  title: Text(entry['text'] ?? ''),
+                  subtitle: Text(entry['time'] ?? ''),
                 );
               },
             ),
