@@ -48,7 +48,7 @@ class AppDatabase {
       'entries',
       where: 'number = ?',
       whereArgs: [number],
-      orderBy: 'id DESC',
+      orderBy: 'id ASC',
     );
   }
 }

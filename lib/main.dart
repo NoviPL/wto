@@ -116,6 +116,45 @@ class _EntryScreenState extends State<EntryScreen> {
     loadEntries();
   }
 
+void _editEntry(Map<String, dynamic> entry) {
+  final editController = TextEditingController(text: entry['text']);
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Edytuj notatkę'),
+      content: TextField(
+        controller: editController,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Anuluj'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final newText = editController.text.trim();
+            if (newText.isEmpty) return;
+
+            final db = await AppDatabase.database;
+
+            await db.update(
+              'entries',
+              {'text': newText},
+              where: 'id = ?',
+              whereArgs: [entry['id']],
+            );
+
+            Navigator.pop(context);
+            loadEntries();
+          },
+          child: const Text('Zapisz'),
+        ),
+      ],
+    ),
+  );
+}
+
   Future<void> loadEntries() async {
     final data = await AppDatabase.getEntries(widget.number);
 
@@ -145,49 +184,52 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.number),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: entries.length,
-              itemBuilder: (context, index) {
-                final entry = entries[index];
-                return ListTile(
-                  title: Text(entry['text'] ?? ''),
-                  subtitle: Text(entry['time'] ?? ''),
-                );
-              },
-            ),
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(widget.number),
+    ),
+    body: Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
 
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Nowy wpis...',
-                      border: OutlineInputBorder(),
-                    ),
+              return ListTile(
+                title: Text(entry['text'] ?? ''),
+                subtitle: Text(entry['time'] ?? ''),
+                onTap: () {
+                  _editEntry(entry);
+                },
+              );
+            },
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Nowy wpis...',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: addEntry,
-                  child: const Text('Dodaj'),
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: addEntry,
+                child: const Text('Dodaj'),
+              )
+            ],
+          ),
+        )
+      ],
+    ),
+  );
 }
