@@ -184,6 +184,32 @@ void _editEntry(Map<String, dynamic> entry) {
     ),
   );
 }
+void _deleteEntry(Map<String, dynamic> entry) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Usuń notatkę'),
+      content: const Text(
+        'Czy na pewno chcesz usunąć tę notatkę?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Anuluj'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            await AppDatabase.deleteEntry(entry['id']);
+
+            Navigator.pop(context);
+            loadEntries();
+          },
+          child: const Text('Usuń'),
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> loadEntries() async {
     final data = await AppDatabase.getEntries(widget.number);
@@ -229,9 +255,12 @@ Widget build(BuildContext context) {
 
               return ListTile(
                 title: Text(entry['text'] ?? ''),
-                subtitle: Text(entry['dataTime'] ?? ''),
+                subtitle: Text(entry['dateTime'] ?? ''),
                 onTap: () {
                   _editEntry(entry);
+                },
+                onLongPress: () {
+                  _deleteEntry(entry);
                 },
               );
             },

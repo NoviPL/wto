@@ -66,4 +66,13 @@ class AppDatabase {
       orderBy: 'id ASC',
     );
   }
+  static Future<void> deleteEntry(int id) async {
+  final db = await database;
+
+  await db.delete(
+    'entries',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
 }
