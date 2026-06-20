@@ -267,7 +267,7 @@ Widget build(BuildContext context) {
         if (selectedImage != null)
           Padding(
             padding: const EdgeInsets.all(8),
-            child: Image.file(
+            child: Image.file(File(entry['imagePath']))
               selectedImage!,
               height: 120,
             ),

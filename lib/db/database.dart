@@ -28,16 +28,22 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             number TEXT,
             text TEXT,
-            dateTime TEXT
+            dateTime TEXT,
+            imagePath TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE entries ADD COLUMN imagePath TEXT');
+        }
       },
     );
   }
