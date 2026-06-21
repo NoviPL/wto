@@ -262,7 +262,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
     if (!mounted) return;
 
-    setState(() {});
+    Navigator.of(context).pop();
   }
 
   @override
