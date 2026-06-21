@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:gallery_saver_plus/gallery_saver.dart';
 void main() {
   runApp(const WTOApp());
 }
@@ -351,33 +352,38 @@ class _EntryScreenState extends State<EntryScreen> {
                 final entry = entries[index];
                 final imagePath = entry['imagePath'] as String?;
 
-                return ListTile(
-                  leading: imagePath != null && imagePath.isNotEmpty
-                      ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(imagePath),
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : const Icon(Icons.description),
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  child: ListTile(
+                    leading: imagePath != null && imagePath.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(imagePath),
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.broken_image);
+                              },
+                            ),
+                          )
+                        : const Icon(Icons.description),
 
-                  title: Text(
-                    entry['text'] ?? '',
-                  ),
-                  subtitle: Text(
-                    entry['dateTime'] ?? '',
-                  ),
+                    title: Text(
+                      entry['text'] ?? '',
+                    ),
+                    subtitle: Text(
+                      entry['dateTime'] ?? '',
+                    ),
 
-                  onTap: () {
-                    if (imagePath != null && imagePath.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => FullScreenImage(
-                            imagePath: imagePath
+                    onTap: () {
+                      if (imagePath != null && imagePath.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImage(
+                              imagePath: imagePath,
                           ),
                         ),
                       );
@@ -385,13 +391,14 @@ class _EntryScreenState extends State<EntryScreen> {
                       _editEntry(entry);
                     }
                   },
-                  onLongPress:() {
+                  onLongPress: () {
                     _deleteEntry(entry);
                   },
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
+        ),
 
           Padding(
             padding: const EdgeInsets.all(12),
@@ -443,16 +450,51 @@ class FullScreenImage extends StatelessWidget {
     required this.imagePath,
   });
 
+  Future<void> saveImage(BuildContext context) async {
+    final success = await GallerySaver.saveImage(imagePath);
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success == true
+              ? 'Zdjęcie zapisane w galerii'
+              : 'Nie udało się zapisać zdjęcia',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Zdjęcie'),
+        actions: [
+          IconButton(
+            onPressed: () => saveImage(context),
+            icon: const Icon(Icons.download),
+            tooltip: 'Zapisz do telefonu',
+          ),
+        ],
+      ),
       body: Center(
         child: InteractiveViewer(
           minScale: 0.5,
           maxScale: 5,
           child: Image.file(
             File(imagePath),
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(
+                Icons.broken_image,
+                color: Colors.white,
+                size: 80,
+              );
+            },
           ),
         ),
       ),
