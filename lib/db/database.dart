@@ -106,14 +106,14 @@ class AppDatabase {
     );
   }
   static Future<void> deleteEntry(int id) async {
-  final db = await database;
+    final db = await database;
 
   await db.delete(
     'entries',
     where: 'id = ?',
     whereArgs: [id],
   );
-    static Future<void> insertTask(int year, String number) async {
+  static Future<void> insertTask(int year, String number) async {
     final db = await database;
 
     await db.insert('tasks', {
