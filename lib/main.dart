@@ -201,6 +201,14 @@ class _EntryScreenState extends State<EntryScreen> {
       entries = data;
     });
   }
+  
+  List<Map<String, dynamic>> get imageEntries {
+  return entries
+      .where((entry) =>
+          entry['imagePath'] != null &&
+          entry['imagePath'].toString().isNotEmpty)
+      .toList();
+  }
 
   Future<void> pickImage() async {
     final image = await picker.pickImage(
@@ -382,13 +390,19 @@ class _EntryScreenState extends State<EntryScreen> {
                       entry['dateTime'] ?? '',
                     ),
 
+                    
                     onTap: () {
                       if (imagePath != null && imagePath.isNotEmpty) {
+                        final photos = imageEntries;
+                        final initialIndex = photos.indexWhere(
+                          (photo) => photo['id'] == entry['id']
+                        );
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => FullScreenImage(
-                              imagePath: imagePath,
+                              photos: photos,
+                              initialIndex: initialIndex <0 ? 0 : initialIndex
                           ),
                         ),
                       );
@@ -412,8 +426,11 @@ class _EntryScreenState extends State<EntryScreen> {
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    decoration:
-                        const InputDecoration(
+                    keyboardType: TextInputType.multiline,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
                       hintText: 'Nowy wpis...',
                       border:
                           OutlineInputBorder(),
@@ -447,15 +464,36 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 }
-class FullScreenImage extends StatelessWidget {
-  final String imagePath;
+class FullScreenImage extends StatefulWidget {
+  final List<Map<String, dynamic>> photos;
+  final int initialIndex;
 
   const FullScreenImage({
     super.key,
-    required this.imagePath,
+    required this.photos,
+    required this.initialIndex,
   });
 
+  @override
+  State<FullScreenImage> createState() => _FullScreenImageState();
+}
+
+class _FullScreenImageState extends State<FullScreenImage> {
+  late final PageController pageController;
+  late int currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    currentIndex = widget.initialIndex;
+    pageController = PageController(initialPage: widget.initialIndex);
+  }
+
   Future<void> saveImage(BuildContext context) async {
+    final imagePath = widget.photos[currentIndex]['imagePath'] as String?;
+
+    if (imagePath == null || imagePath.isEmpty) return;
+
     try {
       await Gal.putImage(imagePath);
 
@@ -478,13 +516,25 @@ class FullScreenImage extends StatelessWidget {
   }
 
   @override
+  void dispose() {
+    pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final currentPhoto = widget.photos[currentIndex];
+    final caption = currentPhoto['text']?.toString() ?? '';
+    final dateTime = currentPhoto['dateTime']?.toString() ?? '';
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Zdjęcie'),
+        title: Text(
+          '${currentIndex + 1}/${widget.photos.length}',
+        ),
         actions: [
           IconButton(
             onPressed: () => saveImage(context),
@@ -493,21 +543,70 @@ class FullScreenImage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Image.file(
-            File(imagePath),
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(
-                Icons.broken_image,
-                color: Colors.white,
-                size: 80,
-              );
-            },
+      body: Column(
+        children: [
+          Expanded(
+            child: PageView.builder(
+              controller: pageController,
+              itemCount: widget.photos.length,
+              onPageChanged: (index) {
+                setState(() {
+                  currentIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final photo = widget.photos[index];
+                final imagePath = photo['imagePath'] as String?;
+
+                return Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5,
+                    child: Image.file(
+                      File(imagePath ?? ''),
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 80,
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            color: Colors.black87,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (caption.isNotEmpty)
+                  Text(
+                    caption,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                if (dateTime.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    dateTime,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
