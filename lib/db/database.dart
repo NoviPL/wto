@@ -28,7 +28,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -39,10 +39,26 @@ class AppDatabase {
             imagePath TEXT
           )
         ''');
+        await db.execute('''
+          CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            year INTEGER,
+            number TEXT
+          )   
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE entries ADD COLUMN imagePath TEXT');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS tasks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              year INTEGER,
+              number TEXT
+            )
+          ''');
         }
       },
     );
@@ -97,6 +113,24 @@ class AppDatabase {
     where: 'id = ?',
     whereArgs: [id],
   );
-  
+    static Future<void> insertTask(int year, String number) async {
+    final db = await database;
+
+    await db.insert('tasks', {
+      'year': year,
+      'number': number,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getTasks(int year) async {
+    final db = await database;
+
+    return db.query(
+      'tasks',
+      where: 'year = ?',
+      whereArgs: [year],
+      orderBy: 'id ASC',
+    );
+  }
 }
 }
