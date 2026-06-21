@@ -572,7 +572,7 @@ class _EntryScreenState extends State<EntryScreen> {
               children: [
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('DANE'),
-                  child: const Text('01.),
+                  child: const Text('01.'),
                 ),
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('ADRES'),
