@@ -180,7 +180,7 @@ class MessagesScreen extends StatelessWidget {
       ),
       body: const Center(
         child: Text(
-          'Tu będą komunikaty',
+          'Tu będą komunikaty jak Jaroslaw ogarnie',
           style: TextStyle(fontSize: 22),
         ),
       ),
@@ -221,12 +221,13 @@ class _NumbersScreenState extends State<NumbersScreen> {
   Future<void> _showAddTaskDialog(BuildContext context) async {
     final taskController = TextEditingController();
 
-    await showDialog(
+    final number = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Dodaj zadanie'),
         content: TextField(
           controller: taskController,
+          autofocus: true,
           decoration: const InputDecoration(
             hintText: 'Np. 301/26',
             border: OutlineInputBorder(),
@@ -234,29 +235,18 @@ class _NumbersScreenState extends State<NumbersScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
             child: const Text('Anuluj'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              final number = taskController.text.trim();
+            onPressed: () {
+              final value = taskController.text.trim();
 
-              if (number.isEmpty) return;
+              if (value.isEmpty) return;
 
-              await AppDatabase.insertTask(widget.year, number);
-
-              if (!context.mounted) return;
-
-              Navigator.of(context).pop();
-
-              if (!mounted) return;
-
-              Future.delayed(Duration.zero, () {
-                if (mounted) {
-                  setState(() {});
-                }
-              });
-              
+              Navigator.of(dialogContext).pop(value);
             },
             child: const Text('Dodaj'),
           ),
@@ -265,6 +255,14 @@ class _NumbersScreenState extends State<NumbersScreen> {
     );
 
     taskController.dispose();
+
+    if (number == null || number.isEmpty) return;
+
+    await AppDatabase.insertTask(widget.year, number);
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   @override
