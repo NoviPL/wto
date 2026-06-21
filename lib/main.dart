@@ -606,22 +606,24 @@ class _EntryScreenState extends State<EntryScreen> {
                     onTap: () {
                       if (imagePath != null && imagePath.isNotEmpty) {
                         final photos = imageEntries;
+
                         final initialIndex = photos.indexWhere(
                           (photo) => photo['id'] == entry['id'],
                         );
+
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => FullScreenImage(
                               photos: photos,
-                              initialIndex: initialIndex <0 ? 0 : initialIndex,
+                              initialIndex: initialIndex < 0 ? 0 : initialIndex,
+                            ),
                           ),
-                        ),
-                      );
-                    } else {
-                      _editEntry(entry);
-                    }
-                  },
+                        );
+                      } else {
+                        _editEntry(entry);
+                      }
+                    },
                   onLongPress: () {
                     _deleteEntry(entry);
                   },
