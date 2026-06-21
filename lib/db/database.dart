@@ -86,7 +86,7 @@ class AppDatabase {
       'entries',
       where: 'number = ?',
       whereArgs: [number],
-      orderBy: CASE WHEN imagePath IS NOT NULL AND imagePath != "" THEN 0 ELSE 1 END, id ASC',
+      orderBy: 'CASE WHEN imagePath IS NOT NULL AND imagePath != "" THEN 0 ELSE 1 END, id ASC',
     );
   }
   static Future<void> deleteEntry(int id) async {
