@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'db/database.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 void main() {
   runApp(const WTOApp());
 }
@@ -166,8 +168,17 @@ class _EntryScreenState extends State<EntryScreen> {
 
     if (image == null) return;
 
+    final appDir = await getApplicationDocumentsDirectory();
+
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}';
+
+    final savedImage = await File(image.path).copy(
+      '${appDir.path}/$fileName',
+    );
+
     setState(() {
-      selectedImage = File(image.path);
+      selectedImage = savedImage;
     });
   }
 
@@ -301,13 +312,14 @@ class _EntryScreenState extends State<EntryScreen> {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-                
+                final imagePath = entry['imagePath'] as String?;
+
                 return ListTile(
-                  leading: entry['imagePath'] != null
+                  leading: imagePath != null && imagePath.isNotEmpty
                       ? ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.file(
-                          File(entry['imagePath']),
+                          File(imagePath),
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
@@ -323,12 +335,12 @@ class _EntryScreenState extends State<EntryScreen> {
                   ),
 
                   onTap: () {
-                    if (entry['imagePath'] != null) {
+                    if (imagePath != null && imagePath.isNotEmpty) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => FullScreenImage(
-                            imagePath: entry['imagePath']
+                            imagePath: imagePath
                           ),
                         ),
                       );
