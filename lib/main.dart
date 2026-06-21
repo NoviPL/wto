@@ -308,8 +308,8 @@ class _EntryScreenState extends State<EntryScreen> {
                         borderRadius: BorderRadius.circular(8),
                         child: Image.file(
                           File(entry['imagePath']),
-                          width: 60
-                          height: 60
+                          width: 60,
+                          height: 60,
                           fit: BoxFit.cover,
                         ),
                       )
