@@ -243,15 +243,11 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
               if (number.isEmpty) return;
 
-              await AppDatabase.insertTask(
-                widget.year,
-                number,
-              );
+              await AppDatabase.insertTask(widget.year, number);
 
               if (!context.mounted) return;
 
               Navigator.pop(context);
-
               setState(() {});
             },
             child: const Text('Dodaj'),
@@ -265,7 +261,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Rok ${widget.year}'),
@@ -276,7 +271,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
         },
         child: const Icon(Icons.add),
       ),
-
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: AppDatabase.getTasks(widget.year),
         builder: (context, snapshot) {
@@ -287,6 +281,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
               child: Text(
                 'Brak zadań.\nKliknij + żeby dodać pierwsze.',
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
               ),
             );
           }
@@ -296,13 +291,55 @@ class _NumbersScreenState extends State<NumbersScreen> {
             itemBuilder: (context, index) {
               final number = tasks[index]['number'] as String;
 
-              return ListTile(
-                title: Text(number),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EntryScreen(number: number),
+              return FutureBuilder<NumberStatus>(
+                future: getNumberStatus(number),
+                builder: (context, snapshot) {
+                  final status = snapshot.data;
+                  final count = status?.count ?? 0;
+                  final imagePath = status?.imagePath;
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: ListTile(
+                      leading: imagePath != null && imagePath.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(imagePath),
+                                width: 46,
+                                height: 46,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(Icons.broken_image);
+                                },
+                              ),
+                            )
+                          : Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: count > 0 ? Colors.green : Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                      title: Text(number),
+                      subtitle: Text(
+                        count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EntryScreen(number: number),
+                          ),
+                        );
+
+                        setState(() {});
+                      },
                     ),
                   );
                 },
@@ -313,6 +350,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
       ),
     );
   }
+}
 
 class EntryScreen extends StatefulWidget {
   final String number;
@@ -563,14 +601,14 @@ class _EntryScreenState extends State<EntryScreen> {
                       if (imagePath != null && imagePath.isNotEmpty) {
                         final photos = imageEntries;
                         final initialIndex = photos.indexWhere(
-                          (photo) => photo['id'] == entry['id']
+                          (photo) => photo['id'] == entry['id'],
                         );
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => FullScreenImage(
                               photos: photos,
-                              initialIndex: initialIndex <0 ? 0 : initialIndex
+                              initialIndex: initialIndex <0 ? 0 : initialIndex,
                           ),
                         ),
                       );
