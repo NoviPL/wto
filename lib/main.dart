@@ -62,10 +62,30 @@ class YearsScreen extends StatelessWidget {
   }
 }
 
+class NumberStatus {
+  final int count;
+  final String? imagePath;
+
+  NumberStatus({
+    required this.count,
+    required this.imagePath,
+  });
+}
+
 class NumbersScreen extends StatelessWidget {
   final int year;
 
   const NumbersScreen({super.key, required this.year});
+
+  Future<NumberStatus> getNumberStatus(String number) async {
+    final count = await AppDatabase.getEntriesCount(number);
+    final imagePath = await AppDatabase.getLastImagePath(number);
+
+    return NumberStatus(
+      count: count,
+      imagePath: imagePath,
+   );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,10 +106,12 @@ class NumbersScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final number = numbers[index];
 
-          return FutureBuilder<int>(
-            future: AppDatabase.getEntriesCount(number),
+          return FutureBuilder<NumberStatus>(
+            future: getNumberStatus(number),
             builder: (context, snapshot) {
-              final count = snapshot.data ?? 0;
+              final status = snapshot.data;
+              final count = status?.count ?? 0;
+              final imagePath = status?.imagePath;
 
               return Card(
                 margin: const EdgeInsets.symmetric(
@@ -97,14 +119,27 @@ class NumbersScreen extends StatelessWidget {
                   vertical: 4,
                 ),
                 child: ListTile(
-                  leading: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: count > 0 ? Colors.green : Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  leading: imagePath != null && imagePath.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(imagePath),
+                            width: 46,
+                            height: 46,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.broken_image);
+                            },
+                          ),
+                        )
+                      : Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: count > 0 ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                   title: Text(number),
                   subtitle: Text(
                     count > 0

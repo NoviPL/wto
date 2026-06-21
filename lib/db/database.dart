@@ -71,7 +71,7 @@ class AppDatabase {
       columns: ['imagePath'],
       where: 'number = ? AND imagePath IS NOT NULL AND imagePath != ""',
       whereArgs: [number],
-     orderBy: 'id DESC',
+     orderBy: 'id ASC',
       limit: 1,
     );
 
