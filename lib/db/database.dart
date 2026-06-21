@@ -36,7 +36,7 @@ class AppDatabase {
             number TEXT,
             text TEXT,
             dateTime TEXT,
-            imagePath TEXT,
+            imagePath TEXT
           )
         ''');
       },
