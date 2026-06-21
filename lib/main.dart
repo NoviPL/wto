@@ -208,6 +208,24 @@ class NumbersScreen extends StatefulWidget {
 }
 
 class _NumbersScreenState extends State<NumbersScreen> {
+  List<Map<String, dynamic>> tasks = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadTasks();
+  }
+
+  Future<void> loadTasks() async {
+    final data = await AppDatabase.getTasks(widget.year);
+
+    if (!mounted) return;
+
+    setState(() {
+      tasks = data;
+    });
+  }
+
   Future<NumberStatus> getNumberStatus(String number) async {
     final count = await AppDatabase.getEntriesCount(number);
     final imagePath = await AppDatabase.getLastImagePath(number);
@@ -218,7 +236,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
     );
   }
 
-  Future<void> _showAddTaskDialog(BuildContext context) async {
+  Future<void> _showAddTaskDialog() async {
     final taskController = TextEditingController();
 
     final number = await showDialog<String>(
@@ -235,9 +253,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Anuluj'),
           ),
           ElevatedButton(
@@ -260,9 +276,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
     await AppDatabase.insertTask(widget.year, number);
 
-    if (!mounted) return;
-
-    Navigator.of(context).pop();
+    await loadTasks();
   }
 
   @override
@@ -272,88 +286,77 @@ class _NumbersScreenState extends State<NumbersScreen> {
         title: Text('Rok ${widget.year}'),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddTaskDialog(context);
-        },
+        onPressed: _showAddTaskDialog,
         child: const Icon(Icons.add),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: AppDatabase.getTasks(widget.year),
-        builder: (context, snapshot) {
-          final tasks = snapshot.data ?? [];
-
-          if (tasks.isEmpty) {
-            return const Center(
+      body: tasks.isEmpty
+          ? const Center(
               child: Text(
                 'Brak zadań.\nKliknij + żeby dodać pierwsze.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18),
               ),
-            );
-          }
+            )
+          : ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final number = tasks[index]['number'] as String;
 
-          return ListView.builder(
-            itemCount: tasks.length,
-            itemBuilder: (context, index) {
-              final number = tasks[index]['number'] as String;
+                return FutureBuilder<NumberStatus>(
+                  future: getNumberStatus(number),
+                  builder: (context, snapshot) {
+                    final status = snapshot.data;
+                    final count = status?.count ?? 0;
+                    final imagePath = status?.imagePath;
 
-              return FutureBuilder<NumberStatus>(
-                future: getNumberStatus(number),
-                builder: (context, snapshot) {
-                  final status = snapshot.data;
-                  final count = status?.count ?? 0;
-                  final imagePath = status?.imagePath;
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: ListTile(
-                      leading: imagePath != null && imagePath.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(imagePath),
-                                width: 46,
-                                height: 46,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(Icons.broken_image);
-                                },
-                              ),
-                            )
-                          : Container(
-                              width: 16,
-                              height: 16,
-                              decoration: BoxDecoration(
-                                color: count > 0 ? Colors.green : Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                      title: Text(number),
-                      subtitle: Text(
-                        count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => EntryScreen(number: number),
-                          ),
-                        );
+                      child: ListTile(
+                        leading: imagePath != null && imagePath.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(imagePath),
+                                  width: 46,
+                                  height: 46,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(Icons.broken_image);
+                                  },
+                                ),
+                              )
+                            : Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: count > 0 ? Colors.green : Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                        title: Text(number),
+                        subtitle: Text(
+                          count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EntryScreen(number: number),
+                            ),
+                          );
 
-                        setState(() {});
-                      },
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+                          loadTasks();
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
