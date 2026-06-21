@@ -301,18 +301,42 @@ class _EntryScreenState extends State<EntryScreen> {
               itemCount: entries.length,
               itemBuilder: (context, index) {
                 final entry = entries[index];
-
+                
                 return ListTile(
+                  leading: entry['imagePath'] != null
+                      ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(entry['imagePath']),
+                          width: 60
+                          height: 60
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(Icons.description),
+
                   title: Text(
                     entry['text'] ?? '',
                   ),
                   subtitle: Text(
                     entry['dateTime'] ?? '',
                   ),
+
                   onTap: () {
-                    _editEntry(entry);
+                    if (entry['imagePath'] != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FullScreenImage(
+                            imagePath: entry['imagePath']
+                          ),
+                        ),
+                      );
+                    } else {
+                      _editEntry(entry);
+                    }
                   },
-                  onLongPress: () {
+                  onLongPress:() {
                     _deleteEntry(entry);
                   },
                 );
@@ -358,6 +382,30 @@ class _EntryScreenState extends State<EntryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+class FullScreenImage extends StatelessWidget {
+  final String imagePath;
+
+  const FullScreenImage({
+    super.key,
+    required this.imagePath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 5,
+          child: Image.file(
+            File(imagePath),
+          ),
+        ),
       ),
     );
   }
