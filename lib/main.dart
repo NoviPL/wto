@@ -73,11 +73,16 @@ class NumberStatus {
   });
 }
 
-class NumbersScreen extends StatelessWidget {
+class NumbersScreen extends StatefulWidget {
   final int year;
 
   const NumbersScreen({super.key, required this.year});
 
+  @override
+  State<NumbersScreen> createState() => _NumbersScreenState();
+}
+
+class _NumbersScreenState extends State<NumbersScreen> {
   Future<NumberStatus> getNumberStatus(String number) async {
     final count = await AppDatabase.getEntriesCount(number);
     final imagePath = await AppDatabase.getLastImagePath(number);
@@ -85,12 +90,12 @@ class NumbersScreen extends StatelessWidget {
     return NumberStatus(
       count: count,
       imagePath: imagePath,
-   );
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final suffix = year.toString().substring(2);
+    final suffix = widget.year.toString().substring(2);
 
     final numbers = [
       ...List.generate(99, (i) => '${301 + i}/$suffix'),
@@ -100,7 +105,7 @@ class NumbersScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rok $year'),
+        title: Text('Rok ${widget.year}'),
       ),
       body: ListView.builder(
         itemCount: numbers.length,
@@ -143,18 +148,18 @@ class NumbersScreen extends StatelessWidget {
                         ),
                   title: Text(number),
                   subtitle: Text(
-                    count > 0
-                        ? 'Liczba wpisów: $count'
-                        : 'Brak wpisów',
+                    count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => EntryScreen(number: number),
                       ),
                     );
+
+                    setState(() {});
                   },
                 ),
               );
