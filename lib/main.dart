@@ -434,7 +434,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
     await AppDatabase.insertEntry(
       widget.number,
-      'WPIS'
+      'WPIS',
       text.isEmpty ? 'Zdjecie' : text,
       time,
       selectedImage?.path,
