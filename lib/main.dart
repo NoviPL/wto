@@ -151,82 +151,6 @@ class _EntryScreenState extends State<EntryScreen> {
     loadEntries();
   }
 
-Future<void> pickImage() async {
-  final image = await picker.pickImage(
-    source: ImageSource.gallery,
-  );
-
-  if (image == null) return;
-
-  setState(() {
-    selectedImage = File(image.path);
-  });
-}
-void _editEntry(Map<String, dynamic> entry) {
-  final editController = TextEditingController(text: entry['text']);
-
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Edytuj notatkę'),
-      content: TextField(
-        controller: editController,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Anuluj'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            final newText = editController.text.trim();
-            if (newText.isEmpty) return;
-
-            final db = await AppDatabase.database;
-
-            await db.update(
-              'entries',
-              {'text': newText},
-              where: 'id = ?',
-              whereArgs: [entry['id']],
-            );
-
-            Navigator.pop(context);
-            loadEntries();
-          },
-          child: const Text('Zapisz'),
-        ),
-      ],
-    ),
-  );
-}
-void _deleteEntry(Map<String, dynamic> entry) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Usuń notatkę'),
-      content: const Text(
-        'Czy na pewno chcesz usunąć tę notatkę?',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Anuluj'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await AppDatabase.deleteEntry(entry['id']);
-
-            Navigator.pop(context);
-            loadEntries();
-          },
-          child: const Text('Usuń'),
-        ),
-      ],
-    ),
-  );
-}
-
   Future<void> loadEntries() async {
     final data = await AppDatabase.getEntries(widget.number);
 
@@ -235,18 +159,118 @@ void _deleteEntry(Map<String, dynamic> entry) {
     });
   }
 
+  Future<void> pickImage() async {
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (image == null) return;
+
+    setState(() {
+      selectedImage = File(image.path);
+    });
+  }
+
   void addEntry() async {
     final text = controller.text.trim();
+
     if (text.isEmpty) return;
 
     final now = DateTime.now();
-    final time =
-        '${now.day}.${now.month}.${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
-    await AppDatabase.insertEntry(widget.number, text, time);
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertEntry(
+      widget.number,
+      text,
+      time,
+      selectedImage?.path,
+    );
 
     controller.clear();
+
+    setState(() {
+      selectedImage = null;
+    });
+
     loadEntries();
+  }
+
+  void _editEntry(Map<String, dynamic> entry) {
+    final editController =
+        TextEditingController(text: entry['text']);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edytuj notatkę'),
+        content: TextField(
+          controller: editController,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newText =
+                  editController.text.trim();
+
+              if (newText.isEmpty) return;
+
+              final db = await AppDatabase.database;
+
+              await db.update(
+                'entries',
+                {
+                  'text': newText,
+                },
+                where: 'id = ?',
+                whereArgs: [entry['id']],
+              );
+
+              Navigator.pop(context);
+
+              loadEntries();
+            },
+            child: const Text('Zapisz'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteEntry(Map<String, dynamic> entry) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Usuń notatkę'),
+        content: const Text(
+          'Czy na pewno chcesz usunąć tę notatkę?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await AppDatabase.deleteEntry(
+                entry['id'],
+              );
+
+              Navigator.pop(context);
+
+              loadEntries();
+            },
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -256,73 +280,85 @@ void _deleteEntry(Map<String, dynamic> entry) {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text(widget.number),
-    ),
-    body: Column(
-      children: [
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.number),
+      ),
+      body: Column(
+        children: [
+          if (selectedImage != null)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.file(
+                selectedImage!,
+                height: 120,
+              ),
+            ),
 
-        if (selectedImage != null)
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Image.file(File(entry['imagePath']))
-              selectedImage!,
-              height: 120,
+          Expanded(
+            child: ListView.builder(
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+
+                return ListTile(
+                  title: Text(
+                    entry['text'] ?? '',
+                  ),
+                  subtitle: Text(
+                    entry['dateTime'] ?? '',
+                  ),
+                  onTap: () {
+                    _editEntry(entry);
+                  },
+                  onLongPress: () {
+                    _deleteEntry(entry);
+                  },
+                );
+              },
             ),
           ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: entries.length,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
 
-              return ListTile(
-                title: Text(entry['text'] ?? ''),
-                subtitle: Text(entry['dateTime'] ?? ''),
-                onTap: () {
-                  _editEntry(entry);
-                },
-                onLongPress: () {
-                  _deleteEntry(entry);
-                },
-              );
-            },
-          ),
-        ),
-
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(
-                    hintText: 'Nowy wpis...',
-                    border: OutlineInputBorder(),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    decoration:
+                        const InputDecoration(
+                      hintText: 'Nowy wpis...',
+                      border:
+                          OutlineInputBorder(),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: pickImage,
-                    icon: const Icon(Icons.photo),
-                  ),
-                  ElevatedButton(
-                    onPressed: addEntry,
-                    child: const Text('Dodaj'),
-                  ),
-                ],
-              ),
-            ],
-          )
-        )
-      ],
-    ),
-  );
-}
+
+                const SizedBox(width: 8),
+
+                Column(
+                  children: [
+                    IconButton(
+                      onPressed: pickImage,
+                      icon: const Icon(
+                        Icons.photo,
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: addEntry,
+                      child: const Text(
+                        'Dodaj',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

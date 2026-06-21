@@ -49,16 +49,18 @@ class AppDatabase {
   }
 
   static Future<void> insertEntry(
-      String number,
-      String text,
-      String dateTime,
-      ) async {
+    String number,
+    String text,
+    String dateTime,
+    String? imagePath,
+  ) async {
     final db = await database;
 
     await db.insert('entries', {
       'number': number,
       'text': text,
       'dateTime': dateTime,
+      'imagePath': imagePath,
     });
   }
 
