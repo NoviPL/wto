@@ -419,6 +419,24 @@ class _EntryScreenState extends State<EntryScreen> {
     });
   }
 
+  void addEntryWithCategory(String category) async {
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertEntry(
+      widget.number,
+      category,
+      '',
+      time,
+      null,
+    );
+
+    loadEntries();
+  }
+
   void addEntry() async {
     final text = controller.text.trim();
 
@@ -546,6 +564,35 @@ class _EntryScreenState extends State<EntryScreen> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton(
+                  onPressed: () => addEntryWithCategory('DANE'),
+                  child: const Text('Dodaj dane'),
+                ),
+                ElevatedButton(
+                  onPressed: () => addEntryWithCategory('ADRES'),
+                  child: const Text('Dodaj adres'),
+                ),
+                ElevatedButton(
+                  onPressed: () => addEntryWithCategory('SAMOCHOD'),
+                  child: const Text('Dodaj samochód'),
+                ),
+                ElevatedButton(
+                  onPressed: () => addEntryWithCategory('KONTAKTY'),
+                  child: const Text('Dodaj kontakty'),
+                ),
+                ElevatedButton(
+                  onPressed: () => addEntryWithCategory('ZADANIA'),
+                  child: const Text('Dodaj zadania'),
+                ),
+              ],
+            ),
+          ),
           if (selectedImage != null)
             Padding(
               padding: const EdgeInsets.all(8),
