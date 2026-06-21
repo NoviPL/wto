@@ -193,6 +193,8 @@ class _EntryScreenState extends State<EntryScreen> {
         '${now.day}.${now.month}.${now.year} '
         '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
+    print('ZAPISYWANE ZDJECIE: ${selectedImage?.path}');
+
     await AppDatabase.insertEntry(
       widget.number,
       text,

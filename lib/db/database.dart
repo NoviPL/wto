@@ -63,7 +63,22 @@ class AppDatabase {
       'imagePath': imagePath,
     });
   }
+  static Future<String?> getLastImagePath(String number) async {
+    final db = await database;
 
+    final result = await db.query(
+      'entries',
+      columns: ['imagePath'],
+      where: 'number = ? AND imagePath IS NOT NULL AND imagePath != ""',
+      whereArgs: [number],
+     orderBy: 'id DESC',
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first['imagePath'] as String?;
+}
   static Future<List<Map<String, dynamic>>> getEntries(String number) async {
     final db = await database;
 
@@ -82,5 +97,6 @@ class AppDatabase {
     where: 'id = ?',
     whereArgs: [id],
   );
+  
 }
 }
