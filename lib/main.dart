@@ -185,7 +185,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void addEntry() async {
     final text = controller.text.trim();
 
-    if (text.isEmpty) return;
+    if (text.isEmpty && selectedImage == null) return;
 
     final now = DateTime.now();
 
@@ -197,7 +197,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
     await AppDatabase.insertEntry(
       widget.number,
-      text,
+      text.isEmpty ? 'Zdjecie' : text,
       time,
       selectedImage?.path,
     );
