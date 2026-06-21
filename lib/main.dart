@@ -247,8 +247,16 @@ class _NumbersScreenState extends State<NumbersScreen> {
 
               if (!context.mounted) return;
 
-              Navigator.pop(context);
-              setState(() {});
+              Navigator.of(context).pop();
+
+              if (!mounted) return;
+
+              Future.delayed(Duration.zero, () {
+                if (mounted) {
+                  setState(() {});
+                }
+              });
+              
             },
             child: const Text('Dodaj'),
           ),
