@@ -218,75 +218,94 @@ class _NumbersScreenState extends State<NumbersScreen> {
     );
   }
 
+  Future<void> _showAddTaskDialog(BuildContext context) async {
+    final taskController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dodaj zadanie'),
+        content: TextField(
+          controller: taskController,
+          decoration: const InputDecoration(
+            hintText: 'Np. 301/26',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final number = taskController.text.trim();
+
+              if (number.isEmpty) return;
+
+              await AppDatabase.insertTask(
+                widget.year,
+                number,
+              );
+
+              if (!context.mounted) return;
+
+              Navigator.pop(context);
+
+              setState(() {});
+            },
+            child: const Text('Dodaj'),
+          ),
+        ],
+      ),
+    );
+
+    taskController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final suffix = widget.year.toString().substring(2);
-
-    final numbers = [
-      ...List.generate(99, (i) => '${301 + i}/$suffix'),
-      ...List.generate(99, (i) => 'A${301 + i}/$suffix'),
-      ...List.generate(20, (i) => 'KOORDYNACJA${i + 1}/$suffix'),
-    ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Rok ${widget.year}'),
       ),
-      body: ListView.builder(
-        itemCount: numbers.length,
-        itemBuilder: (context, index) {
-          final number = numbers[index];
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _showAddTaskDialog(context);
+        },
+        child: const Icon(Icons.add),
+      ),
 
-          return FutureBuilder<NumberStatus>(
-            future: getNumberStatus(number),
-            builder: (context, snapshot) {
-              final status = snapshot.data;
-              final count = status?.count ?? 0;
-              final imagePath = status?.imagePath;
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: AppDatabase.getTasks(widget.year),
+        builder: (context, snapshot) {
+          final tasks = snapshot.data ?? [];
 
-              return Card(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                child: ListTile(
-                  leading: imagePath != null && imagePath.isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(imagePath),
-                            width: 46,
-                            height: 46,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(Icons.broken_image);
-                            },
-                          ),
-                        )
-                      : Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: count > 0 ? Colors.green : Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                  title: Text(number),
-                  subtitle: Text(
-                    count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EntryScreen(number: number),
-                      ),
-                    );
+          if (tasks.isEmpty) {
+            return const Center(
+              child: Text(
+                'Brak zadań.\nKliknij + żeby dodać pierwsze.',
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
 
-                    setState(() {});
-                  },
-                ),
+          return ListView.builder(
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              final number = tasks[index]['number'] as String;
+
+              return ListTile(
+                title: Text(number),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EntryScreen(number: number),
+                    ),
+                  );
+                },
               );
             },
           );
@@ -294,7 +313,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
       ),
     );
   }
-}
 
 class EntryScreen extends StatefulWidget {
   final String number;
