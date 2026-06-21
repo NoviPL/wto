@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:gallery_saver_plus/gallery_saver.dart';
+import 'package:gal/gal.dart';
 void main() {
   runApp(const WTOApp());
 }
@@ -451,19 +451,25 @@ class FullScreenImage extends StatelessWidget {
   });
 
   Future<void> saveImage(BuildContext context) async {
-    final success = await GallerySaver.saveImage(imagePath);
+    try {
+      await Gal.putImage(imagePath);
 
-    if (!context.mounted) return;
+      if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success == true
-              ? 'Zdjęcie zapisane w galerii'
-              : 'Nie udało się zapisać zdjęcia',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Zdjęcie zapisane w galerii'),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nie udało się zapisać zdjęcia'),
+        ),
+      );
+    }
   }
 
   @override
