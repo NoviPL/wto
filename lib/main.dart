@@ -270,6 +270,14 @@ class _EntryScreenState extends State<EntryScreen> {
         title: const Text('Edytuj notatkę'),
         content: TextField(
           controller: editController,
+          keyboardType: TextInputType.multiline,
+          minLines: 3,
+          maxLines: 8,
+          textInputAction: TextInputAction.newline,
+          decoration: const InputDecoration(
+            hintText: 'Treść notatki...',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
           TextButton(
@@ -366,8 +374,13 @@ class _EntryScreenState extends State<EntryScreen> {
                 final imagePath = entry['imagePath'] as String?;
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  elevation: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.all(10)
                     leading: imagePath != null && imagePath.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),
@@ -385,11 +398,23 @@ class _EntryScreenState extends State<EntryScreen> {
 
                     title: Text(
                       entry['text'] ?? '',
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    subtitle: Text(
-                      entry['dateTime'] ?? '',
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        entry['dateTime'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
-
                     
                     onTap: () {
                       if (imagePath != null && imagePath.isNotEmpty) {
