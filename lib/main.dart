@@ -270,8 +270,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
       ),
     );
 
-    taskController.dispose();
-
     if (number == null || number.isEmpty) return;
 
     await AppDatabase.insertTask(widget.year, number);
