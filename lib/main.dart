@@ -572,23 +572,23 @@ class _EntryScreenState extends State<EntryScreen> {
               children: [
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('DANE'),
-                  child: const Text('Dodaj dane'),
+                  child: const Text('01.),
                 ),
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('ADRES'),
-                  child: const Text('Dodaj adres'),
+                  child: const Text('05.'),
                 ),
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('SAMOCHOD'),
-                  child: const Text('Dodaj samochód'),
+                  child: const Text('57.'),
                 ),
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('KONTAKTY'),
-                  child: const Text('Dodaj kontakty'),
+                  child: const Text('08.'),
                 ),
                 ElevatedButton(
                   onPressed: () => addEntryWithCategory('ZADANIA'),
-                  child: const Text('Dodaj zadania'),
+                  child: const Text('ZADANIA'),
                 ),
               ],
             ),
@@ -608,7 +608,24 @@ class _EntryScreenState extends State<EntryScreen> {
               itemBuilder: (context, index) {
                 final entry = entries[index];
                 final imagePath = entry['imagePath'] as String?;
+                final category = entry['category']?.toString() ?? 'WPIS';
 
+                Color categoryColor(String category) {
+                  switch (category) {
+                    case 'DANE':
+                      return Colors.grey.shade300;
+                    case 'ADRES':
+                      return Colors.grey.shade400;
+                    case 'SAMOCHOD':
+                      return Colors.grey.shade500;
+                    case 'KONTAKTY':
+                      return Colors.grey.shade600;
+                    case 'ZADANIA':
+                      return Colors.grey.shade700;
+                    default:
+                      return Colors.grey.shade200;
+                  }
+                }
                 return Card(
                   elevation: 2,
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -630,7 +647,26 @@ class _EntryScreenState extends State<EntryScreen> {
                               },
                             ),
                           )
-                        : const Icon(Icons.description),
+                        : Container(
+                            width: 60,
+                            height: 60,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: categoryColor(category),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              category,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: category == 'ZADANIA' || category == 'KONTAKTY'
+                                    ? Colors.white
+                                    : Colors.black,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
 
                     title: Text(
                       entry['text'] ?? '',
