@@ -114,7 +114,7 @@ class AppDatabase {
       whereArgs: [id],
     );
   }
-  
+
   static Future<void> insertTask(int year, String number) async {
     final db = await database;
 
@@ -134,5 +134,4 @@ class AppDatabase {
       orderBy: 'id ASC',
     );
   }
-}
 }
