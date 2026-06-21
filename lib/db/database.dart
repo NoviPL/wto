@@ -28,12 +28,13 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             number TEXT,
+            category TEXT,
             text TEXT,
             dateTime TEXT,
             imagePath TEXT
@@ -60,12 +61,16 @@ class AppDatabase {
             )
           ''');
         }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE entries ADD COLUMN category TEXT');
+        }
       },
     );
   }
 
   static Future<void> insertEntry(
     String number,
+    String category,
     String text,
     String dateTime,
     String? imagePath,
@@ -74,6 +79,7 @@ class AppDatabase {
 
     await db.insert('entries', {
       'number': number,
+      'category': category,
       'text': text,
       'dateTime': dateTime,
       'imagePath': imagePath,
