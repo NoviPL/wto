@@ -29,6 +29,8 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
+    assets:
+      - assets/image/wto_logo.jpg
     sdk: flutter
 
   cupertino_icons: ^1.0.8
