@@ -380,7 +380,7 @@ class _EntryScreenState extends State<EntryScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.all(10)
+                    contentPadding: const EdgeInsets.all(10),
                     leading: imagePath != null && imagePath.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),
