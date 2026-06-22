@@ -13,14 +13,112 @@ class AppDatabase {
     );
   }
 
-  static Future<void> insertCar(String name, String plate, String createdAt) async {
+  static Future<void> insertCar(
+    String name,
+    String plate,
+    String createdAt,
+    int colorIndex,
+  ) async {
     final db = await database;
 
     await db.insert('cars', {
       'name': name,
       'plate': plate,
       'createdAt': createdAt,
+      'colorIndex': colorIndex,
     });
+  }
+
+  static Future<void> updateCar(
+    int id,
+    String name,
+    String plate,
+  ) async {
+    final db = await database;
+
+    await db.update(
+      'cars',
+      {
+        'name': name,
+        'plate': plate,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> deleteCar(int id) async {
+    final db = await database;
+
+    await db.delete(
+      'car_notes',
+      where: 'carId = ?',
+      whereArgs: [id],
+    );
+
+    await db.delete(
+      'cars',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getCarNotes(
+    int carId,
+    String section,
+  ) async {
+    final db = await database;
+
+    return db.query(
+      'car_notes',
+      where: 'carId = ? AND section = ?',
+      whereArgs: [carId, section],
+      orderBy: 'id DESC',
+    );
+  }
+
+  static Future<void> insertCarNote(
+    int carId,
+    String section,
+    String text,
+    String dateTime,
+    String userId,
+  ) async {
+    final db = await database;
+
+    await db.insert('car_notes', {
+      'carId': carId,
+      'section': section,
+      'text': text,
+      'dateTime': dateTime,
+      'userId': userId,
+    });
+  }
+
+  static Future<void> updateCarNote(
+    int id,
+    String text,
+  ) async {
+    final db = await database;
+
+    await db.update(
+      'car_notes',
+      {
+        'text': text,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> deleteCarNote(int id) async {
+    final db = await database;
+
+    await db.delete(
+      'car_notes',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   static Future<Database> get database async {
@@ -47,7 +145,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -77,7 +175,18 @@ class AppDatabase {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             plate TEXT,
-            createdAt TEXT
+            createdAt TEXT,
+            colorIndex INTEGER DEFAULT 0
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE car_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            carId INTEGER NOT NULL,
+            section TEXT NOT NULL,
+            text TEXT NOT NULL,
+            dateTime TEXT NOT NULL,
+            userId TEXT NOT NULL
           )
         ''');
 
@@ -115,6 +224,22 @@ class AppDatabase {
               createdAt TEXT
             )
           ''');
+        if (oldVersion < 6) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS car_notes (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              carId INTEGER NOT NULL,
+              section TEXT NOT NULL,
+              text TEXT NOT NULL,
+              dateTime TEXT NOT NULL,
+              userId TEXT NOT NULL
+            )
+          ''');
+
+          try {
+            await db.execute('ALTER TABLE cars ADD COLUMN colorIndex INTEGER DEFAULT 0');
+          } catch (_) {}
+        }
 
           await db.insert(
             'years',

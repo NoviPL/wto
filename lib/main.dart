@@ -1107,6 +1107,24 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 }
+
+const String currentUserId = 'USER_001';
+
+Color carColor(int index) {
+  final colors = [
+    Colors.blueGrey.shade900,
+    Colors.teal.shade800,
+    Colors.indigo.shade800,
+    Colors.deepPurple.shade700,
+    Colors.brown.shade700,
+    Colors.green.shade800,
+    Colors.orange.shade800,
+    Colors.red.shade800,
+  ];
+
+  return colors[index % colors.length];
+}
+
 class FleetScreen extends StatefulWidget {
   const FleetScreen({super.key});
 
@@ -1133,14 +1151,18 @@ class _FleetScreenState extends State<FleetScreen> {
     });
   }
 
-  Future<void> _showAddCarDialog() async {
-    final nameController = TextEditingController();
-    final plateController = TextEditingController();
+  Future<void> _showCarDialog({Map<String, dynamic>? car}) async {
+    final nameController = TextEditingController(
+      text: car?['name']?.toString() ?? '',
+    );
+    final plateController = TextEditingController(
+      text: car?['plate']?.toString() ?? '',
+    );
 
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Dodaj samochód'),
+        title: Text(car == null ? 'Dodaj samochód' : 'Edytuj samochód'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1149,7 +1171,6 @@ class _FleetScreenState extends State<FleetScreen> {
               autofocus: true,
               decoration: const InputDecoration(
                 labelText: 'Nazwa auta',
-                hintText: 'Np. Ford Transit',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1158,7 +1179,6 @@ class _FleetScreenState extends State<FleetScreen> {
               controller: plateController,
               decoration: const InputDecoration(
                 labelText: 'Rejestracja',
-                hintText: 'Np. PK12345',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1181,7 +1201,7 @@ class _FleetScreenState extends State<FleetScreen> {
                 'plate': plate,
               });
             },
-            child: const Text('Dodaj'),
+            child: const Text('Zapisz'),
           ),
         ],
       ),
@@ -1189,18 +1209,54 @@ class _FleetScreenState extends State<FleetScreen> {
 
     if (result == null) return;
 
-    final now = DateTime.now();
+    if (car == null) {
+      final now = DateTime.now();
 
-    final time =
-        '${now.day}.${now.month}.${now.year} '
-        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+      final time =
+          '${now.day}.${now.month}.${now.year} '
+          '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
-    await AppDatabase.insertCar(
-      result['name'] ?? '',
-      result['plate'] ?? '',
-      time,
+      await AppDatabase.insertCar(
+        result['name'] ?? '',
+        result['plate'] ?? '',
+        time,
+        cars.length,
+      );
+    } else {
+      await AppDatabase.updateCar(
+        car['id'] as int,
+        result['name'] ?? '',
+        result['plate'] ?? '',
+      );
+    }
+
+    await loadCars();
+  }
+
+  Future<void> _deleteCar(Map<String, dynamic> car) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń samochód'),
+        content: Text(
+          'Czy na pewno chcesz usunąć samochód ${car['name']}?\n\nUsunięte zostaną też jego notatki.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
     );
 
+    if (confirm != true) return;
+
+    await AppDatabase.deleteCar(car['id'] as int);
     await loadCars();
   }
 
@@ -1213,7 +1269,7 @@ class _FleetScreenState extends State<FleetScreen> {
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddCarDialog,
+        onPressed: () => _showCarDialog(),
         icon: const Icon(Icons.add),
         label: const Text('Dodaj auto'),
       ),
@@ -1233,31 +1289,26 @@ class _FleetScreenState extends State<FleetScreen> {
                 final name = car['name']?.toString() ?? '';
                 final plate = car['plate']?.toString() ?? '';
                 final createdAt = car['createdAt']?.toString() ?? '';
+                final colorIndex = car['colorIndex'] as int? ?? index;
 
                 return Card(
-                  elevation: 3,
+                  color: carColor(colorIndex),
+                  elevation: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
-                    leading: Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: Colors.blueGrey.shade900,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.directions_car,
-                        color: Colors.white,
-                        size: 30,
-                      ),
+                    leading: const Icon(
+                      Icons.directions_car,
+                      color: Colors.white,
+                      size: 36,
                     ),
                     title: Text(
                       name,
                       style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1266,16 +1317,40 @@ class _FleetScreenState extends State<FleetScreen> {
                       plate.isEmpty
                           ? 'Dodano: $createdAt'
                           : '$plate\nDodano: $createdAt',
+                      style: const TextStyle(color: Colors.white70),
                     ),
                     isThreeLine: plate.isNotEmpty,
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      Navigator.push(
+                    trailing: PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showCarDialog(car: car);
+                        }
+
+                        if (value == 'delete') {
+                          _deleteCar(car);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Edytuj'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Usuń'),
+                        ),
+                      ],
+                    ),
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => CarDetailsScreen(car: car),
                         ),
                       );
+
+                      loadCars();
                     },
                   ),
                 );
@@ -1297,6 +1372,7 @@ class CarDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = car['name']?.toString() ?? '';
     final plate = car['plate']?.toString() ?? '';
+    final colorIndex = car['colorIndex'] as int? ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -1308,7 +1384,8 @@ class CarDetailsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Card(
-            elevation: 3,
+            color: carColor(colorIndex),
+            elevation: 4,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
@@ -1316,18 +1393,10 @@ class CarDetailsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               child: Row(
                 children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: Colors.blueGrey.shade900,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(
-                      Icons.directions_car,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                  const Icon(
+                    Icons.directions_car,
+                    color: Colors.white,
+                    size: 42,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1337,20 +1406,19 @@ class CarDetailsScreen extends StatelessWidget {
                         Text(
                           name,
                           style: const TextStyle(
+                            color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (plate.isNotEmpty) ...[
-                          const SizedBox(height: 4),
+                        if (plate.isNotEmpty)
                           Text(
                             plate,
                             style: const TextStyle(
+                              color: Colors.white70,
                               fontSize: 16,
-                              color: Colors.black54,
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ),
@@ -1358,28 +1426,334 @@ class CarDetailsScreen extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 18),
-
           _CarOptionTile(
             title: 'Zgłoś usterkę',
             subtitle: 'Awaria, naprawa, problem z autem',
             icon: Icons.report_problem,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CarNotesScreen(
+                    car: car,
+                    section: 'USTERKI',
+                    title: 'Zgłoś usterkę',
+                  ),
+                ),
+              );
+            },
           ),
-
           _CarOptionTile(
             title: 'OC / AC / BT',
             subtitle: 'Ubezpieczenia i badanie techniczne',
             icon: Icons.verified_user,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CarNotesScreen(
+                    car: car,
+                    section: 'OC_AC_BT',
+                    title: 'OC / AC / BT',
+                  ),
+                ),
+              );
+            },
           ),
-
           _CarOptionTile(
             title: 'Konspiracja',
             subtitle: 'Notatki wewnętrzne',
             icon: Icons.lock,
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CarNotesScreen(
+                    car: car,
+                    section: 'KONSPIRACJA',
+                    title: 'Konspiracja',
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CarNotesScreen extends StatefulWidget {
+  final Map<String, dynamic> car;
+  final String section;
+  final String title;
+
+  const CarNotesScreen({
+    super.key,
+    required this.car,
+    required this.section,
+    required this.title,
+  });
+
+  @override
+  State<CarNotesScreen> createState() => _CarNotesScreenState();
+}
+
+class _CarNotesScreenState extends State<CarNotesScreen> {
+  final TextEditingController controller = TextEditingController();
+
+  List<Map<String, dynamic>> notes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadNotes();
+  }
+
+  Future<void> loadNotes() async {
+    final data = await AppDatabase.getCarNotes(
+      widget.car['id'] as int,
+      widget.section,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      notes = data;
+    });
+  }
+
+  Future<void> addNote() async {
+    final text = controller.text.trim();
+
+    if (text.isEmpty) return;
+
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertCarNote(
+      widget.car['id'] as int,
+      widget.section,
+      text,
+      time,
+      currentUserId,
+    );
+
+    controller.clear();
+    await loadNotes();
+  }
+
+  Future<void> editNote(Map<String, dynamic> note) async {
+    final editController = TextEditingController(
+      text: note['text']?.toString() ?? '',
+    );
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edytuj notatkę'),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          keyboardType: TextInputType.multiline,
+          minLines: 3,
+          maxLines: 8,
+          textInputAction: TextInputAction.newline,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Treść notatki...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = editController.text.trim();
+
+              if (value.isEmpty) return;
+
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Zapisz'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return;
+
+    await AppDatabase.updateCarNote(
+      note['id'] as int,
+      result,
+    );
+
+    await loadNotes();
+  }
+
+  Future<void> deleteNote(Map<String, dynamic> note) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń notatkę'),
+        content: const Text('Czy na pewno chcesz usunąć tę notatkę?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.deleteCarNote(note['id'] as int);
+    await loadNotes();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final carName = widget.car['name']?.toString() ?? '';
+    final plate = widget.car['plate']?.toString() ?? '';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: Text(widget.title),
+        centerTitle: true,
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey.shade900,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              plate.isEmpty ? carName : '$carName\n$plate',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: notes.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Brak notatek.',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: notes.length,
+                    itemBuilder: (context, index) {
+                      final note = notes[index];
+                      final text = note['text']?.toString() ?? '';
+                      final dateTime = note['dateTime']?.toString() ?? '';
+                      final userId = note['userId']?.toString() ?? '';
+
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(12),
+                          title: Text(
+                            text,
+                            maxLines: 8,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              '$dateTime\nID: $userId',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                editNote(note);
+                              }
+
+                              if (value == 'delete') {
+                                deleteNote(note);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edytuj'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Usuń'),
+                              ),
+                            ],
+                          ),
+                          onTap: () => editNote(note),
+                          onLongPress: () => deleteNote(note),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.multiline,
+                    minLines: 1,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      hintText: 'Nowa notatka...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: addNote,
+                  child: const Text('Dodaj'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
