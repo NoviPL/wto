@@ -482,7 +482,7 @@ class EntryScreen extends StatefulWidget {
 class _EntryScreenState extends State<EntryScreen> {
   final TextEditingController controller = TextEditingController();
 
-  File? selectedImage;
+  List<File> selectedImages = [];
   final picker = ImagePicker();
 
   List<Map<String, dynamic>> entries = [];
@@ -510,27 +510,43 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   Future<void> pickImage() async {
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final images = await picker.pickMultiImage();
 
-    if (image == null) return;
+    if (images.isEmpty) return;
 
     final appDir = await getApplicationDocumentsDirectory();
 
-    final fileName =
-        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}';
+    final List<File> savedImages = [];
 
-    final savedImage = await File(image.path).copy(
-      '${appDir.path}/$fileName',
-    );
+    for (final image in images) {
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}';
+
+      final savedImage = await File(image.path).copy(
+        '${appDir.path}/$fileName',
+      );
+
+      savedImages.add(savedImage);
+    }
 
     setState(() {
-      selectedImage = savedImage;
+      selectedImages.addAll(savedImages);
     });
   }
 
   void addEntryWithCategory(String category) async {
+    final alreadyExists = entries.any(
+      (entry) => entry['category']?.toString() == category,
+    );
+
+    if (alreadyExists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$category już istnieje'),
+        ),
+      );
+      return;
+    }
     final now = DateTime.now();
 
     final time =
@@ -551,7 +567,7 @@ class _EntryScreenState extends State<EntryScreen> {
   void addEntry() async {
     final text = controller.text.trim();
 
-    if (text.isEmpty && selectedImage == null) return;
+    if (text.isEmpty && selectedImages.isEmpty) return;
 
     final now = DateTime.now();
 
@@ -559,20 +575,32 @@ class _EntryScreenState extends State<EntryScreen> {
         '${now.day}.${now.month}.${now.year} '
         '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
-    print('ZAPISYWANE ZDJECIE: ${selectedImage?.path}');
+    print('ZAPISYWANE ZDJECIE: ${selectedImages.length}');
 
-    await AppDatabase.insertEntry(
-      widget.number,
-      'WPIS',
-      text.isEmpty ? 'Zdjecie' : text,
-      time,
-      selectedImage?.path,
-    );
+    if (selectedImages.isEmpty) {
+      await AppDatabase.insertEntry(
+        widget.number,
+        'WPIS',
+        text,
+        time,
+        null,
+      );
+    } else {
+      for (int i = 0; i < selectedImages.length; i++) {
+        await AppDatabase.insertEntry(
+          widget.number,
+          'WPIS',
+          i == 0 && text.isNotEmpty ? text : 'Zdjecie',
+          time,
+          selectedImages[i].path,
+        );
+      }
+    }
 
     controller.clear();
 
     setState(() {
-      selectedImage = null;
+      selectedImages.clear();
     });
 
     loadEntries();
@@ -700,12 +728,27 @@ class _EntryScreenState extends State<EntryScreen> {
               ],
             ),
           ),
-          if (selectedImage != null)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Image.file(
-                selectedImage!,
-                height: 120,
+          if (selectedImages.isNotEmpty)
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.all(8),
+                itemCount: selectedImages.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        selectedImages[index],
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
 
@@ -724,9 +767,9 @@ class _EntryScreenState extends State<EntryScreen> {
                       return Colors.grey.shade300;
                     case 'ADRES':
                       return Colors.grey.shade400;
-                    case 'SAMOCHOD':
+                    case 'KOŁA':
                       return Colors.grey.shade500;
-                    case 'KONTAKTY':
+                    case 'KONT.':
                       return Colors.grey.shade600;
                     case 'ZADANIA':
                       return Colors.grey.shade700;
