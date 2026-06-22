@@ -844,7 +844,24 @@ class _EntryScreenState extends State<EntryScreen> {
   child: ListView(
     padding: const EdgeInsets.all(8),
     children: [
-      if (imageEntries.isNotEmpty)
+      if (imageEntries.isNotEmpty) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+          child: Row(
+            children: [
+              const Icon(Icons.photo_library, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Zdjęcia (${imageEntries.length})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -929,10 +946,29 @@ class _EntryScreenState extends State<EntryScreen> {
             );
           },
         ),
+  ],
 
-      const SizedBox(height: 10),
+  if (noteEntries.isNotEmpty) ...[
+    const SizedBox(height: 14),
+    Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+      child: Row(
+        children: [
+          const Icon(Icons.article, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            'Dane sprawy (${noteEntries.length})',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ],
 
-      ...noteEntries.map((entry) {
+  ...noteEntries.map((entry) {
         final category = entry['category']?.toString() ?? 'WPIS';
         final isMainCategory = category != 'WPIS';
 
