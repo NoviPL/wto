@@ -449,7 +449,14 @@ class _NumbersScreenState extends State<NumbersScreen> {
                         subtitle: Text(
                           count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
                         ),
-                        trailing: const Icon(Icons.arrow_forward_ios),
+                        trailing: imagePath != null && imagePath.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () {
+                                  _editEntry(entry);
+                                },
+                              )
+                            : null,
                         onTap: () async {
                           await Navigator.push(
                             context,
@@ -514,54 +521,89 @@ class _EntryScreenState extends State<EntryScreen> {
 
     if (images.isEmpty) return;
 
-    final appDir = await getApplicationDocumentsDirectory();
+    String caption = '';
 
-    final List<File> savedImages = [];
+    if (images.length == 1) {
+      final captionController = TextEditingController();
 
-    for (final image in images) {
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}';
-
-      final savedImage = await File(image.path).copy(
-        '${appDir.path}/$fileName',
-      );
-
-      savedImages.add(savedImage);
-    }
-
-    setState(() {
-      selectedImages.addAll(savedImages);
-    });
-  }
-
-  void addEntryWithCategory(String category) async {
-    final alreadyExists = entries.any(
-      (entry) => entry['category']?.toString() == category,
-    );
-
-    if (alreadyExists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$category już istnieje'),
+      final result = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Podpis zdjęcia'),
+          content: TextField(
+            controller: captionController,
+            autofocus: true,
+            keyboardType: TextInputType.multiline,
+            minLines: 3,
+            maxLines: 7,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              hintText: 'Wpisz podpis zdjęcia...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(''),
+              child: const Text('Bez podpisu'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(
+                  captionController.text.trim(),
+                );
+              },
+              child: const Text('Zapisz'),
+            ),
+          ],
         ),
       );
-      return;
+
+      caption = result ?? '';
     }
+
+    final appDir = await getApplicationDocumentsDirectory();
+
     final now = DateTime.now();
 
     final time =
         '${now.day}.${now.month}.${now.year} '
         '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
-    await AppDatabase.insertEntry(
-      widget.number,
-      category,
-      '',
-      time,
-      null,
-    );
+    for (int i = 0; i < images.length; i++) {
+      final image = images[i];
 
-    loadEntries();
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_$i_${p.basename(image.path)}';
+
+      final savedImage = await File(image.path).copy(
+        '${appDir.path}/$fileName',
+      );
+
+      await AppDatabase.insertEntry(
+        widget.number,
+        'WPIS',
+        images.length == 1
+            ? (caption.isEmpty ? 'Zdjęcie' : caption)
+            : 'Zdjęcie ${i + 1}',
+        time,
+        savedImage.path,
+      );
+    }
+
+    await loadEntries();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          images.length == 1
+              ? 'Zdjęcie dodane'
+              : 'Dodano zdjęcia: ${images.length}',
+        ),
+      ),
+    );
   }
 
   void addEntry() async {
@@ -718,11 +760,11 @@ class _EntryScreenState extends State<EntryScreen> {
                   child: const Text('05.'),
                 ),
                 ElevatedButton(
-                  onPressed: () => addEntryWithCategory('SAMOCHOD'),
+                  onPressed: () => addEntryWithCategory('AUTA'),
                   child: const Text('57.'),
                 ),
                 ElevatedButton(
-                  onPressed: () => addEntryWithCategory('KONTAKTY'),
+                  onPressed: () => addEntryWithCategory('KONT.'),
                   child: const Text('08.'),
                 ),
               ],
