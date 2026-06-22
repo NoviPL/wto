@@ -250,7 +250,7 @@ class _YearsScreenState extends State<YearsScreen> {
                             height: 54,
                             decoration: BoxDecoration(
                               color: Colors.blueGrey.shade900,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Icon(
                               Icons.calendar_month,
@@ -286,6 +286,7 @@ class MessagesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         title: const Text('Komunikaty'),
       ),
@@ -893,7 +894,9 @@ class _EntryScreenState extends State<EntryScreen> {
                 _deleteEntry(entry);
               },
               child: Card(
-                elevation: 2,
+                color: Colors.white,
+                elevation: 5,
+                clipBehavior: Clip.antiAlias,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1123,16 +1126,16 @@ class _CategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 155,
-      height: 82,
+      width: 165,
+      height: 76,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: isDone ? Colors.grey.shade700 : Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isDone ? Colors.grey.shade900 : Colors.grey.shade500,
               width: 1,
