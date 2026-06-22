@@ -449,13 +449,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
                         subtitle: Text(
                           count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
                         ),
-                        trailing: imagePath != null && imagePath.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () {
-                                  _editEntry(entry);
-                                },
-                              )
+                        trailing: const Icon(Icons.arrow_forward_ios),
                             : null,
                         onTap: () async {
                           await Navigator.push(
@@ -514,6 +508,36 @@ class _EntryScreenState extends State<EntryScreen> {
           entry['imagePath'] != null &&
           entry['imagePath'].toString().isNotEmpty)
       .toList();
+  }
+  void addEntryWithCategory(String category) async {
+    final alreadyExists = entries.any(
+      (entry) => entry['category']?.toString() == category,
+    );
+
+    if (alreadyExists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$category już istnieje'),
+        ),
+      );
+      return;
+    }
+
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertEntry(
+      widget.number,
+      category,
+      '',
+      time,
+      null,
+    );
+
+    await loadEntries();
   }
 
   Future<void> pickImage() async {
@@ -574,7 +598,7 @@ class _EntryScreenState extends State<EntryScreen> {
       final image = images[i];
 
       final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_$i_${p.basename(image.path)}';
+          '${DateTime.now().millisecondsSinceEpoch}_${i}_${p.basename(image.path)}';
 
       final savedImage = await File(image.path).copy(
         '${appDir.path}/$fileName',
@@ -882,6 +906,15 @@ class _EntryScreenState extends State<EntryScreen> {
                       ),
                     ),
                     
+                    trailing: imagePath != null && imagePath.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () {
+                              _editEntry(entry);
+                            },
+                          )
+                        : null,
+
                     onTap: () {
                       if (imagePath != null && imagePath.isNotEmpty) {
                         final photos = imageEntries;
