@@ -4,6 +4,71 @@ import 'package:path/path.dart';
 class AppDatabase {
   static Database? _db;
 
+  static Future<Map<String, int>> getCarSectionCounts(int carId) async {
+    final db = await database;
+
+    final result = await db.rawQuery('''
+      SELECT section, COUNT(*) as count
+      FROM car_notes
+      WHERE carId = ?
+      GROUP BY section
+    ''', [carId]);
+
+    final counts = <String, int>{};
+
+    for (final row in result) {
+      counts[row['section'].toString()] = row['count'] as int;
+    }
+
+    return counts;
+  }
+
+  static Future<Map<String, dynamic>?> getCarTerms(int carId) async {
+    final db = await database;
+
+    final result = await db.query(
+      'car_terms',
+      where: 'carId = ?',
+      whereArgs: [carId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first;
+  }
+
+  static Future<void> saveCarTerms(
+    int carId,
+    String? ocDate,
+    String? acDate,
+    String? btDate,
+  ) async {
+    final db = await database;
+
+    final existing = await getCarTerms(carId);
+
+    if (existing == null) {
+      await db.insert('car_terms', {
+        'carId': carId,
+        'ocDate': ocDate,
+        'acDate': acDate,
+        'btDate': btDate,
+      });
+    } else {
+      await db.update(
+        'car_terms',
+        {
+          'ocDate': ocDate,
+          'acDate': acDate,
+          'btDate': btDate,
+        },
+        where: 'carId = ?',
+        whereArgs: [carId],
+      );
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getCars() async {
     final db = await database;
 
@@ -82,8 +147,9 @@ class AppDatabase {
     String section,
     String text,
     String dateTime,
-    String userId,
-  ) async {
+    String userId, {
+    String? imagePath,
+  }) async {
     final db = await database;
 
     await db.insert('car_notes', {
@@ -92,6 +158,7 @@ class AppDatabase {
       'text': text,
       'dateTime': dateTime,
       'userId': userId,
+      'imagePath': imagePath,
     });
   }
 
@@ -145,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -186,7 +253,17 @@ class AppDatabase {
             section TEXT NOT NULL,
             text TEXT NOT NULL,
             dateTime TEXT NOT NULL,
-            userId TEXT NOT NULL
+            userId TEXT NOT NULL,
+            imagePath TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE car_terms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            carId INTEGER NOT NULL UNIQUE,
+            ocDate TEXT,
+            acDate TEXT,
+            btDate TEXT
           )
         ''');
 
@@ -235,6 +312,21 @@ class AppDatabase {
               userId TEXT NOT NULL
             )
           ''');
+        if (oldVersion < 7) {
+          try {
+            await db.execute('ALTER TABLE car_notes ADD COLUMN imagePath TEXT');
+          } catch (_) {}
+
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS car_terms (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              carId INTEGER NOT NULL UNIQUE,
+              ocDate TEXT,
+              acDate TEXT,
+              btDate TEXT
+            )
+          ''');
+        }
 
           try {
             await db.execute('ALTER TABLE cars ADD COLUMN colorIndex INTEGER DEFAULT 0');

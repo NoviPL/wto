@@ -1426,55 +1426,68 @@ class CarDetailsScreen extends StatelessWidget {
               ),
             ),
           ),
+
           const SizedBox(height: 18),
-          _CarOptionTile(
-            title: 'Zgłoś usterkę',
-            subtitle: 'Awaria, naprawa, problem z autem',
-            icon: Icons.report_problem,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CarNotesScreen(
-                    car: car,
-                    section: 'USTERKI',
+
+          FutureBuilder<Map<String, int>>(
+            future: AppDatabase.getCarSectionCounts(car['id'] as int),
+            builder: (context, snapshot) {
+              final counts = snapshot.data ?? {};
+
+              return Column(
+                children: [
+                  _CarOptionTile(
                     title: 'Zgłoś usterkę',
+                    subtitle: 'Usterki: ${counts['USTERKI'] ?? 0}',
+                    icon: Icons.report_problem,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CarNotesScreen(
+                            car: car,
+                            section: 'USTERKI',
+                            title: 'Zgłoś usterkę',
+                            allowImages: true,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
-              );
-            },
-          ),
-          _CarOptionTile(
-            title: 'OC / AC / BT',
-            subtitle: 'Ubezpieczenia i badanie techniczne',
-            icon: Icons.verified_user,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CarNotesScreen(
-                    car: car,
-                    section: 'OC_AC_BT',
+
+                  _CarOptionTile(
                     title: 'OC / AC / BT',
+                    subtitle: 'Terminy dokumentów',
+                    icon: Icons.verified_user,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CarTermsScreen(car: car),
+                        ),
+                      );
+                    },
                   ),
-                ),
-              );
-            },
-          ),
-          _CarOptionTile(
-            title: 'Konspiracja',
-            subtitle: 'Notatki wewnętrzne',
-            icon: Icons.lock,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CarNotesScreen(
-                    car: car,
-                    section: 'KONSPIRACJA',
+
+                  _CarOptionTile(
                     title: 'Konspiracja',
+                    subtitle: 'Notatki: ${counts['KONSPIRACJA'] ?? 0}',
+                    icon: Icons.lock,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CarNotesScreen(
+                            car: car,
+                            section: 'KONSPIRACJA',
+                            title: 'Konspiracja',
+                            allowImages: false,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
+                ],
               );
             },
           ),
@@ -1488,12 +1501,14 @@ class CarNotesScreen extends StatefulWidget {
   final Map<String, dynamic> car;
   final String section;
   final String title;
+  final bool allowImages;
 
   const CarNotesScreen({
     super.key,
     required this.car,
     required this.section,
     required this.title,
+    required this.allowImages,
   });
 
   @override
@@ -1509,6 +1524,42 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
   void initState() {
     super.initState();
     loadNotes();
+  }
+
+  Future<void> addPhotoNote() async {
+    final images = await picker.pickMultiImage();
+
+    if (images.isEmpty) return;
+
+    final appDir = await getApplicationDocumentsDirectory();
+
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    for (int i = 0; i < images.length; i++) {
+      final image = images[i];
+
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${i}_${p.basename(image.path)}';
+
+      final savedImage = await File(image.path).copy(
+        '${appDir.path}/$fileName',
+      );
+
+      await AppDatabase.insertCarNote(
+        widget.car['id'] as int,
+        widget.section,
+        'Zdjęcie usterki',
+        time,
+        currentUserId,
+        imagePath: savedImage.path,
+      );
+    }
+
+    await loadNotes();
   }
 
   Future<void> loadNotes() async {
@@ -1683,6 +1734,21 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.all(12),
+                          leading: note['imagePath'] != null &&
+                                  note['imagePath'].toString().isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    File(note['imagePath']),
+                                    width: 58,
+                                    height: 58,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(Icons.broken_image);
+                                    },
+                                  ),
+                                )
+                              : null,
                           title: Text(
                             text,
                             maxLines: 8,
@@ -1747,7 +1813,17 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+
+                if (widget.allowImages) ...[
+                  const SizedBox(width: 6),
+                  IconButton(
+                    onPressed: addPhotoNote,
+                    icon: const Icon(Icons.photo),
+                  ),
+                ],
+
+                const SizedBox(width: 6),
+
                 ElevatedButton(
                   onPressed: addNote,
                   child: const Text('Dodaj'),
@@ -1755,6 +1831,196 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class CarTermsScreen extends StatefulWidget {
+  final Map<String, dynamic> car;
+
+  const CarTermsScreen({
+    super.key,
+    required this.car,
+  });
+
+  @override
+  State<CarTermsScreen> createState() => _CarTermsScreenState();
+}
+
+class _CarTermsScreenState extends State<CarTermsScreen> {
+  String? ocDate;
+  String? acDate;
+  String? btDate;
+
+  @override
+  void initState() {
+    super.initState();
+    loadTerms();
+  }
+
+  Future<void> loadTerms() async {
+    final data = await AppDatabase.getCarTerms(widget.car['id'] as int);
+
+    if (!mounted) return;
+
+    setState(() {
+      ocDate = data?['ocDate']?.toString();
+      acDate = data?['acDate']?.toString();
+      btDate = data?['btDate']?.toString();
+    });
+  }
+
+  Future<void> pickTerm(String type) async {
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2040),
+      initialDate: DateTime.now(),
+    );
+
+    if (picked == null) return;
+
+    final value =
+        '${picked.day}.${picked.month}.${picked.year}';
+
+    if (type == 'OC') ocDate = value;
+    if (type == 'AC') acDate = value;
+    if (type == 'BT') btDate = value;
+
+    await AppDatabase.saveCarTerms(
+      widget.car['id'] as int,
+      ocDate,
+      acDate,
+      btDate,
+    );
+
+    await loadTerms();
+  }
+
+  DateTime? parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+
+    final parts = value.split('.');
+
+    if (parts.length != 3) return null;
+
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+
+    if (day == null || month == null || year == null) return null;
+
+    return DateTime(year, month, day);
+  }
+
+  Color termColor(String? value) {
+    final date = parseDate(value);
+
+    if (date == null) return Colors.grey.shade700;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final daysLeft = date.difference(today).inDays;
+
+    if (daysLeft < 0) return Colors.red.shade800;
+    if (daysLeft <= 30) return Colors.orange.shade800;
+
+    return Colors.green.shade800;
+  }
+
+  String termStatus(String? value) {
+    final date = parseDate(value);
+
+    if (date == null) return 'Brak ustawionej daty';
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final daysLeft = date.difference(today).inDays;
+
+    if (daysLeft < 0) return 'Po terminie';
+    if (daysLeft == 0) return 'Termin dzisiaj';
+    if (daysLeft <= 30) return 'Zostało dni: $daysLeft';
+
+    return 'Zostało dni: $daysLeft';
+  }
+
+  Widget termTile(String title, String? date, String type) {
+    return Card(
+      color: termColor(date),
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: const Icon(
+          Icons.event_available,
+          color: Colors.white,
+          size: 34,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 21,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Text(
+          date == null || date.isEmpty
+              ? 'Brak daty\n${termStatus(date)}'
+              : '$date\n${termStatus(date)}',
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.edit_calendar,
+          color: Colors.white,
+        ),
+        onTap: () => pickTerm(type),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.car['name']?.toString() ?? '';
+    final plate = widget.car['plate']?.toString() ?? '';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('OC / AC / BT'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey.shade900,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              plate.isEmpty ? name : '$name\n$plate',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          termTile('OC', ocDate, 'OC'),
+          termTile('AC', acDate, 'AC'),
+          termTile('BT', btDate, 'BT'),
         ],
       ),
     );
