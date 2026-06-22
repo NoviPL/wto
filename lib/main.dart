@@ -450,7 +450,6 @@ class _NumbersScreenState extends State<NumbersScreen> {
                           count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios),
-                            : null,
                         onTap: () async {
                           await Navigator.push(
                             context,
