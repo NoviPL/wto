@@ -99,7 +99,14 @@ class MainMenuScreen extends StatelessWidget {
                   _MainMenuButton(
                     title: 'INNE',
                     icon: Icons.more_horiz,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const OtherScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 50),
                 ],
@@ -293,8 +300,259 @@ class _YearsScreenState extends State<YearsScreen> {
   }
 }
 
-class MessagesScreen extends StatelessWidget {
+class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
+
+  @override
+  State<MessagesScreen> createState() => _MessagesScreenState();
+}
+
+class _MessagesScreenState extends State<MessagesScreen> {
+  List<Map<String, dynamic>> messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadMessages();
+  }
+
+  Future<void> loadMessages() async {
+    final data = await AppDatabase.getMessages();
+
+    if (!mounted) return;
+
+    setState(() {
+      messages = data;
+    });
+  }
+
+  Color messageColor(String level) {
+    switch (level) {
+      case 'WAŻNE':
+        return Colors.red.shade800;
+      case 'ISTOTNE':
+        return Colors.amber.shade800;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  IconData messageIcon(String level) {
+    switch (level) {
+      case 'WAŻNE':
+        return Icons.priority_high;
+      case 'ISTOTNE':
+        return Icons.warning_amber;
+      default:
+        return Icons.campaign;
+    }
+  }
+
+  Future<void> showAddMessageDialog() async {
+    final titleController = TextEditingController();
+    final textController = TextEditingController();
+    String selectedLevel = 'WAŻNE';
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Dodaj komunikat'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tytuł komunikatu',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: textController,
+                      keyboardType: TextInputType.multiline,
+                      minLines: 4,
+                      maxLines: 8,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        labelText: 'Treść komunikatu',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedLevel,
+                      decoration: const InputDecoration(
+                        labelText: 'Ważność',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'WAŻNE',
+                          child: Text('Czerwony - ważne'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ISTOTNE',
+                          child: Text('Żółty - istotne'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'OGŁOSZENIE',
+                          child: Text('Szary - ogłoszenie'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+
+                        setDialogState(() {
+                          selectedLevel = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Anuluj'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final text = textController.text.trim();
+
+                    if (title.isEmpty || text.isEmpty) return;
+
+                    Navigator.of(dialogContext).pop({
+                      'title': title,
+                      'text': text,
+                      'level': selectedLevel,
+                    });
+                  },
+                  child: const Text('Dodaj'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertMessage(
+      result['title'] ?? '',
+      result['text'] ?? '',
+      result['level'] ?? 'OGŁOSZENIE',
+      time,
+      currentUserId,
+    );
+
+    await loadMessages();
+  }
+
+  Future<void> deleteMessage(Map<String, dynamic> message) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń komunikat'),
+        content: const Text('Czy na pewno chcesz usunąć ten komunikat?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.deleteMessage(message['id'] as int);
+    await loadMessages();
+  }
+
+  void openMessage(Map<String, dynamic> message) {
+    final title = message['title']?.toString() ?? '';
+    final text = message['text']?.toString() ?? '';
+    final level = message['level']?.toString() ?? 'OGŁOSZENIE';
+    final dateTime = message['dateTime']?.toString() ?? '';
+    final userId = message['userId']?.toString() ?? '';
+
+    final color = messageColor(level);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(messageIcon(level), color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color),
+                ),
+                child: Text(
+                  level,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                text,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '$dateTime\nID: $userId',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Zamknij'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -302,11 +560,172 @@ class MessagesScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         title: const Text('Komunikaty'),
+        centerTitle: true,
       ),
-      body: const Center(
-        child: Text(
-          'Tu będą komunikaty jak Jaroslaw ogarnie',
-          style: TextStyle(fontSize: 22),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: showAddMessageDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj'),
+      ),
+      body: messages.isEmpty
+          ? const Center(
+              child: Text(
+                'Brak komunikatów.\nKliknij Dodaj.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final title = message['title']?.toString() ?? '';
+                final level = message['level']?.toString() ?? 'OGŁOSZENIE';
+                final dateTime = message['dateTime']?.toString() ?? '';
+                final color = messageColor(level);
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: color,
+                      width: 2,
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(14),
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      child: Icon(
+                        messageIcon(level),
+                        color: Colors.white,
+                      ),
+                    ),
+                    title: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text('$level • $dateTime'),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => openMessage(message),
+                    onLongPress: () => deleteMessage(message),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class OtherScreen extends StatelessWidget {
+  const OtherScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Inne'),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Card(
+          elevation: 6,
+          margin: const EdgeInsets.all(24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(26),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 82,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.shade900,
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Icon(
+                    Icons.apps,
+                    color: Colors.white,
+                    size: 44,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'WTOApp',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'System organizacji pracy WTO',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'Twórca aplikacji',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Jarosław Nowinowski',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.shade900,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Text(
+                    'wersja v0.69',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'internal build',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1532,6 +1951,47 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
 
     if (images.isEmpty) return;
 
+    String caption = '';
+
+    if (images.length == 1) {
+      final captionController = TextEditingController();
+
+      final result = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Podpis zdjęcia'),
+          content: TextField(
+            controller: captionController,
+            autofocus: true,
+            keyboardType: TextInputType.multiline,
+            minLines: 3,
+            maxLines: 7,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              hintText: 'Wpisz podpis usterki...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(''),
+              child: const Text('Bez podpisu'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(
+                  captionController.text.trim(),
+                );
+              },
+              child: const Text('Zapisz'),
+            ),
+          ],
+        ),
+      );
+
+      caption = result ?? '';
+    }
+
     final appDir = await getApplicationDocumentsDirectory();
 
     final now = DateTime.now();
@@ -1553,7 +2013,9 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
       await AppDatabase.insertCarNote(
         widget.car['id'] as int,
         widget.section,
-        'Zdjęcie usterki',
+        images.length == 1
+            ? (caption.isEmpty ? 'Zdjęcie usterki' : caption)
+            : 'Zdjęcie usterki ${i + 1}',
         time,
         currentUserId,
         imagePath: savedImage.path,
@@ -1737,16 +2199,39 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                           contentPadding: const EdgeInsets.all(12),
                           leading: note['imagePath'] != null &&
                                   note['imagePath'].toString().isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    File(note['imagePath']),
-                                    width: 58,
-                                    height: 58,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(Icons.broken_image);
-                                    },
+                              ? GestureDetector(
+                                  onTap: () {
+                                    final photoNotes = notes
+                                        .where((n) =>
+                                            n['imagePath'] != null &&
+                                            n['imagePath'].toString().isNotEmpty)
+                                        .toList();
+
+                                    final initialIndex = photoNotes.indexWhere(
+                                      (n) => n['id'] == note['id'],
+                                    );
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => FullScreenImage(
+                                          photos: photoNotes,
+                                          initialIndex: initialIndex < 0 ? 0 : initialIndex,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(note['imagePath']),
+                                      width: 58,
+                                      height: 58,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(Icons.broken_image);
+                                      },
+                                    ),
                                   ),
                                 )
                               : null,
@@ -1790,7 +2275,10 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                               ),
                             ],
                           ),
-                          onTap: () => editNote(note),
+                          onTap: note['imagePath'] != null &&
+                                  note['imagePath'].toString().isNotEmpty
+                              ? null
+                              : () => editNote(note),
                           onLongPress: () => deleteNote(note),
                         ),
                       );

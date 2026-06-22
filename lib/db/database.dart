@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -264,6 +264,16 @@ class AppDatabase {
             ocDate TEXT,
             acDate TEXT,
             btDate TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            text TEXT NOT NULL,
+            level TEXT NOT NULL,
+            dateTime TEXT NOT NULL,
+            userId TEXT NOT NULL
           )
         ''');
 
@@ -326,7 +336,19 @@ class AppDatabase {
               btDate TEXT
             )
           ''');
+        if (oldVersion < 8) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              text TEXT NOT NULL,
+              level TEXT NOT NULL,
+              dateTime TEXT NOT NULL,
+              userId TEXT NOT NULL
+            )
+          ''');
         }
+        
 
           try {
             await db.execute('ALTER TABLE cars ADD COLUMN colorIndex INTEGER DEFAULT 0');
@@ -437,6 +459,42 @@ class AppDatabase {
     return db.query(
       'years',
       orderBy: 'year DESC',
+    );
+  }
+  static Future<List<Map<String, dynamic>>> getMessages() async {
+    final db = await database;
+
+    return db.query(
+      'messages',
+      orderBy: 'id DESC',
+    );
+  }
+
+  static Future<void> insertMessage(
+    String title,
+    String text,
+    String level,
+    String dateTime,
+    String userId,
+  ) async {
+    final db = await database;
+
+    await db.insert('messages', {
+      'title': title,
+      'text': text,
+      'level': level,
+      'dateTime': dateTime,
+      'userId': userId,
+    });
+  }
+
+  static Future<void> deleteMessage(int id) async {
+    final db = await database;
+
+    await db.delete(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 }
