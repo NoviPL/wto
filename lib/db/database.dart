@@ -224,19 +224,22 @@ class AppDatabase {
             imagePath TEXT
           )
         ''');
+
         await db.execute('''
           CREATE TABLE tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year INTEGER,
             number TEXT
-          )   
+          )
         ''');
+
         await db.execute('''
           CREATE TABLE years (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             year INTEGER UNIQUE
           )
         ''');
+
         await db.execute('''
           CREATE TABLE cars (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -246,6 +249,7 @@ class AppDatabase {
             colorIndex INTEGER DEFAULT 0
           )
         ''');
+
         await db.execute('''
           CREATE TABLE car_notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,6 +261,7 @@ class AppDatabase {
             imagePath TEXT
           )
         ''');
+
         await db.execute('''
           CREATE TABLE car_terms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,6 +271,7 @@ class AppDatabase {
             btDate TEXT
           )
         ''');
+
         await db.execute('''
           CREATE TABLE messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -282,8 +288,11 @@ class AppDatabase {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          await db.execute('ALTER TABLE entries ADD COLUMN imagePath TEXT');
+          try {
+            await db.execute('ALTER TABLE entries ADD COLUMN imagePath TEXT');
+          } catch (_) {}
         }
+
         if (oldVersion < 3) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
@@ -293,9 +302,13 @@ class AppDatabase {
             )
           ''');
         }
+
         if (oldVersion < 4) {
-          await db.execute('ALTER TABLE entries ADD COLUMN category TEXT');
+          try {
+            await db.execute('ALTER TABLE entries ADD COLUMN category TEXT');
+          } catch (_) {}
         }
+
         if (oldVersion < 5) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS years (
@@ -303,14 +316,30 @@ class AppDatabase {
               year INTEGER UNIQUE
             )
           ''');
+
           await db.execute('''
             CREATE TABLE IF NOT EXISTS cars (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               name TEXT NOT NULL,
               plate TEXT,
-              createdAt TEXT
+              createdAt TEXT,
+              colorIndex INTEGER DEFAULT 0
             )
           ''');
+
+          await db.insert(
+            'years',
+            {'year': 2025},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+
+          await db.insert(
+            'years',
+            {'year': 2026},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+
         if (oldVersion < 6) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS car_notes (
@@ -319,9 +348,18 @@ class AppDatabase {
               section TEXT NOT NULL,
               text TEXT NOT NULL,
               dateTime TEXT NOT NULL,
-              userId TEXT NOT NULL
+              userId TEXT NOT NULL,
+              imagePath TEXT
             )
           ''');
+
+          try {
+            await db.execute(
+              'ALTER TABLE cars ADD COLUMN colorIndex INTEGER DEFAULT 0',
+            );
+          } catch (_) {}
+        }
+
         if (oldVersion < 7) {
           try {
             await db.execute('ALTER TABLE car_notes ADD COLUMN imagePath TEXT');
@@ -336,6 +374,8 @@ class AppDatabase {
               btDate TEXT
             )
           ''');
+        }
+
         if (oldVersion < 8) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS messages (
@@ -348,6 +388,9 @@ class AppDatabase {
             )
           ''');
         }
+      },
+    );
+  }
         
 
           try {
