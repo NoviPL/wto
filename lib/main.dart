@@ -1517,6 +1517,7 @@ class CarNotesScreen extends StatefulWidget {
 
 class _CarNotesScreenState extends State<CarNotesScreen> {
   final TextEditingController controller = TextEditingController();
+  final picker = ImagePicker();
 
   List<Map<String, dynamic>> notes = [];
 
