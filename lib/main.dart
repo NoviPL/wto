@@ -454,7 +454,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
                           await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => EntryScreen(number: number),
+                             builder: (_) => EntryScreen(number: number),
                             ),
                           );
 
@@ -774,25 +774,35 @@ class _EntryScreenState extends State<EntryScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ElevatedButton(
-                  onPressed: () => addEntryWithCategory('DANE'),
-                  child: const Text('01.'),
+                _CategoryTile(
+                  title: '01.',
+                  subtitle: 'DANE',
+                  icon: Icons.description,
+                  isDone: entries.any((e) => e['category']?.toString() == 'DANE'),
+                  onTap: () => addEntryWithCategory('DANE'),
                 ),
-                ElevatedButton(
-                  onPressed: () => addEntryWithCategory('ADRES'),
-                  child: const Text('05.'),
+                _CategoryTile(
+                  title: '05.',
+                  subtitle: 'ADRES',
+                  icon: Icons.location_on,
+                  isDone: entries.any((e) => e['category']?.toString() == 'ADRES'),
+                  onTap: () => addEntryWithCategory('ADRES'),
                 ),
-                ElevatedButton(
-                  onPressed: () => addEntryWithCategory('AUTA'),
-                  child: const Text('57.'),
+                _CategoryTile(
+                  title: '57.',
+                  subtitle: 'AUTA',
+                  icon: Icons.directions_car,
+                  isDone: entries.any((e) => e['category']?.toString() == 'AUTA'),
+                  onTap: () => addEntryWithCategory('AUTA'),
                 ),
-                ElevatedButton(
-                  onPressed: () => addEntryWithCategory('KONT.'),
-                  child: const Text('08.'),
+                _CategoryTile(
+                  title: '08.',
+                  subtitle: 'KONT.',
+                  icon: Icons.contacts,
+                  isDone: entries.any((e) => e['category']?.toString() == 'KONT.'),
+                  onTap: () => addEntryWithCategory('KONT.'),
                 ),
               ],
-            ),
-          ),
           if (selectedImages.isNotEmpty)
             SizedBox(
               height: 120,
@@ -1001,6 +1011,79 @@ class FullScreenImage extends StatefulWidget {
 
   @override
   State<FullScreenImage> createState() => _FullScreenImageState();
+}
+
+class _CategoryTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isDone;
+  final VoidCallback onTap;
+
+  const _CategoryTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isDone,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 155,
+      height: 82,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isDone ? Colors.grey.shade700 : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDone ? Colors.grey.shade900 : Colors.grey.shade500,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isDone ? Icons.check_circle : icon,
+                color: isDone ? Colors.white : Colors.black87,
+                size: 28,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: isDone ? Colors.white : Colors.black,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: isDone ? Colors.white70 : Colors.black87,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _FullScreenImageState extends State<FullScreenImage> {
