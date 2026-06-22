@@ -28,7 +28,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -47,6 +47,15 @@ class AppDatabase {
             number TEXT
           )   
         ''');
+        await db.execute('''
+          CREATE TABLE years (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            year INTEGER UNIQUE
+          )
+        ''');
+
+        await db.insert('years', {'year': 2025});
+        await db.insert('years', {'year': 2026});
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -63,6 +72,26 @@ class AppDatabase {
         }
         if (oldVersion < 4) {
           await db.execute('ALTER TABLE entries ADD COLUMN category TEXT');
+        }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS years (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              year INTEGER UNIQUE
+            )
+          ''');
+
+          await db.insert(
+            'years',
+            {'year': 2025},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+
+          await db.insert(
+            'years',
+            {'year': 2026},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
         }
       },
     );
@@ -138,6 +167,24 @@ class AppDatabase {
       where: 'year = ?',
       whereArgs: [year],
       orderBy: 'id ASC',
+    );
+  }
+  static Future<void> insertYear(int year) async {
+    final db = await database;
+
+    await db.insert(
+      'years',
+      {'year': year},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getYears() async {
+    final db = await database;
+
+    return db.query(
+      'years',
+      orderBy: 'year ASC',
     );
   }
 }

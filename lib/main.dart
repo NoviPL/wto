@@ -131,40 +131,151 @@ class _MainMenuButton extends StatelessWidget {
   }
 }
 
-class YearsScreen extends StatelessWidget {
+class YearsScreen extends StatefulWidget {
   const YearsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final years = [2025, 2026];
+  State<YearsScreen> createState() => _YearsScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('WTO'),
+class _YearsScreenState extends State<YearsScreen> {
+  List<Map<String, dynamic>> years = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadYears();
+  }
+
+  Future<void> loadYears() async {
+    final data = await AppDatabase.getYears();
+
+    if (!mounted) return;
+
+    setState(() {
+      years = data;
+    });
+  }
+
+  Future<void> _showAddYearDialog() async {
+    final yearController = TextEditingController();
+
+    final year = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dodaj rok'),
+        content: TextField(
+          controller: yearController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            hintText: 'Np. 2027',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = int.tryParse(yearController.text.trim());
+
+              if (value == null) return;
+
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Dodaj'),
+          ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: years.length,
-        itemBuilder: (context, index) {
-          return Card(
-            margin: const EdgeInsets.all(8),
-            child: ListTile(
-              title: Text(
-                years[index].toString(),
-                style: const TextStyle(fontSize: 24),
+    );
+
+    if (year == null) return;
+
+    await AppDatabase.insertYear(year);
+    await loadYears();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F5F7),
+      appBar: AppBar(
+        title: const Text('Zadania'),
+        centerTitle: true,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddYearDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj rok'),
+      ),
+      body: years.isEmpty
+          ? const Center(
+              child: Text(
+                'Brak lat.\nKliknij Dodaj rok.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NumbersScreen(year: years[index]),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: years.length,
+              itemBuilder: (context, index) {
+                final year = years[index]['year'] as int;
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => NumbersScreen(year: year),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey.shade900,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              year.toString(),
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },
             ),
-          );
-        },
-      ),
     );
   }
 }
