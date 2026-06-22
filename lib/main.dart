@@ -602,6 +602,8 @@ class _EntryScreenState extends State<EntryScreen> {
         '${now.day}.${now.month}.${now.year} '
         '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
+    final photoCount = imageEntries.length;
+
     for (int i = 0; i < images.length; i++) {
       final image = images[i];
 
@@ -617,7 +619,7 @@ class _EntryScreenState extends State<EntryScreen> {
         'WPIS',
         images.length == 1
             ? (caption.isEmpty ? 'Zdjęcie' : caption)
-            : 'Zdjęcie ${i + 1}',
+            : 'Zdjęcie ${photoCount + i + 1}',
         time,
         savedImage.path,
       );
