@@ -4,6 +4,25 @@ import 'package:path/path.dart';
 class AppDatabase {
   static Database? _db;
 
+  static Future<List<Map<String, dynamic>>> getCars() async {
+    final db = await database;
+
+    return db.query(
+      'cars',
+      orderBy: 'id DESC',
+    );
+  }
+
+  static Future<void> insertCar(String name, String plate, String createdAt) async {
+    final db = await database;
+
+    await db.insert('cars', {
+      'name': name,
+      'plate': plate,
+      'createdAt': createdAt,
+    });
+  }
+
   static Future<Database> get database async {
     if (_db != null) return _db!;
 
@@ -53,6 +72,14 @@ class AppDatabase {
             year INTEGER UNIQUE
           )
         ''');
+        await db.execute('''
+          CREATE TABLE cars (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            plate TEXT,
+            createdAt TEXT
+          )
+        ''');
 
         await db.insert('years', {'year': 2025});
         await db.insert('years', {'year': 2026});
@@ -78,6 +105,14 @@ class AppDatabase {
             CREATE TABLE IF NOT EXISTS years (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               year INTEGER UNIQUE
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS cars (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              plate TEXT,
+              createdAt TEXT
             )
           ''');
 

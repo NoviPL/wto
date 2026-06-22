@@ -1107,8 +1107,102 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 }
-class FleetScreen extends StatelessWidget {
+class FleetScreen extends StatefulWidget {
   const FleetScreen({super.key});
+
+  @override
+  State<FleetScreen> createState() => _FleetScreenState();
+}
+
+class _FleetScreenState extends State<FleetScreen> {
+  List<Map<String, dynamic>> cars = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadCars();
+  }
+
+  Future<void> loadCars() async {
+    final data = await AppDatabase.getCars();
+
+    if (!mounted) return;
+
+    setState(() {
+      cars = data;
+    });
+  }
+
+  Future<void> _showAddCarDialog() async {
+    final nameController = TextEditingController();
+    final plateController = TextEditingController();
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dodaj samochód'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nazwa auta',
+                hintText: 'Np. Ford Transit',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: plateController,
+              decoration: const InputDecoration(
+                labelText: 'Rejestracja',
+                hintText: 'Np. PK12345',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final plate = plateController.text.trim();
+
+              if (name.isEmpty) return;
+
+              Navigator.of(dialogContext).pop({
+                'name': name,
+                'plate': plate,
+              });
+            },
+            child: const Text('Dodaj'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) return;
+
+    final now = DateTime.now();
+
+    final time =
+        '${now.day}.${now.month}.${now.year} '
+        '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    await AppDatabase.insertCar(
+      result['name'] ?? '',
+      result['plate'] ?? '',
+      time,
+    );
+
+    await loadCars();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1118,18 +1212,232 @@ class FleetScreen extends StatelessWidget {
         title: const Text('Flota'),
         centerTitle: true,
       ),
-      body: const Center(
-        child: Text(
-          'Tu będzie lista samochodów',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddCarDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj auto'),
+      ),
+      body: cars.isEmpty
+          ? const Center(
+              child: Text(
+                'Brak samochodów.\nKliknij Dodaj auto.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: cars.length,
+              itemBuilder: (context, index) {
+                final car = cars[index];
+                final name = car['name']?.toString() ?? '';
+                final plate = car['plate']?.toString() ?? '';
+                final createdAt = car['createdAt']?.toString() ?? '';
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(14),
+                    leading: Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey.shade900,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.directions_car,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      plate.isEmpty
+                          ? 'Dodano: $createdAt'
+                          : '$plate\nDodano: $createdAt',
+                    ),
+                    isThreeLine: plate.isNotEmpty,
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CarDetailsScreen(car: car),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class CarDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> car;
+
+  const CarDetailsScreen({
+    super.key,
+    required this.car,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = car['name']?.toString() ?? '';
+    final plate = car['plate']?.toString() ?? '';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: Text(name),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.shade900,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.directions_car,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (plate.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            plate,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+
+          const SizedBox(height: 18),
+
+          _CarOptionTile(
+            title: 'Zgłoś usterkę',
+            subtitle: 'Awaria, naprawa, problem z autem',
+            icon: Icons.report_problem,
+            onTap: () {},
+          ),
+
+          _CarOptionTile(
+            title: 'OC / AC / BT',
+            subtitle: 'Ubezpieczenia i badanie techniczne',
+            icon: Icons.verified_user,
+            onTap: () {},
+          ),
+
+          _CarOptionTile(
+            title: 'Konspiracja',
+            subtitle: 'Notatki wewnętrzne',
+            icon: Icons.lock,
+            onTap: () {},
+          ),
+        ],
       ),
     );
   }
 }
+
+class _CarOptionTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CarOptionTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 30,
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
 class FullScreenImage extends StatefulWidget {
   final List<Map<String, dynamic>> photos;
   final int initialIndex;
