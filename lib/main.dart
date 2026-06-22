@@ -803,6 +803,8 @@ class _EntryScreenState extends State<EntryScreen> {
                   onTap: () => addEntryWithCategory('KONT.'),
                 ),
               ],
+            ),
+          ),
           if (selectedImages.isNotEmpty)
             SizedBox(
               height: 120,
