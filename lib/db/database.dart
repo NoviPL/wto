@@ -166,7 +166,7 @@ class AppDatabase {
       'tasks',
       where: 'year = ?',
       whereArgs: [year],
-      orderBy: 'id ASC',
+      orderBy: 'id DESC',
     );
   }
   static Future<void> insertYear(int year) async {
