@@ -391,28 +391,6 @@ class AppDatabase {
       },
     );
   }
-        
-
-          try {
-            await db.execute('ALTER TABLE cars ADD COLUMN colorIndex INTEGER DEFAULT 0');
-          } catch (_) {}
-        }
-
-          await db.insert(
-            'years',
-            {'year': 2025},
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-
-          await db.insert(
-            'years',
-            {'year': 2026},
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-        }
-      },
-    );
-  }
 
   static Future<void> insertEntry(
     String number,
