@@ -508,6 +508,15 @@ class _EntryScreenState extends State<EntryScreen> {
           entry['imagePath'].toString().isNotEmpty)
       .toList();
   }
+
+  List<Map<String, dynamic>> get noteEntries {
+    return entries
+        .where((entry) =>
+            entry['imagePath'] == null ||
+            entry['imagePath'].toString().isEmpty)
+        .toList();
+  }
+
   void addEntryWithCategory(String category) async {
     final alreadyExists = entries.any(
       (entry) => entry['category']?.toString() == category,
@@ -830,131 +839,174 @@ class _EntryScreenState extends State<EntryScreen> {
             ),
 
           Expanded(
-            child: ListView.builder(
-              itemCount: entries.length,
-              itemBuilder: (context, index) {
-                final entry = entries[index];
-                final imagePath = entry['imagePath'] as String?;
-                final category = entry['category']?.toString() ?? 'WPIS';
-                final isMainCategory = category != 'WPIS';
+  child: ListView(
+    padding: const EdgeInsets.all(8),
+    children: [
+      if (imageEntries.isNotEmpty)
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: imageEntries.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 0.72,
+          ),
+          itemBuilder: (context, index) {
+            final entry = imageEntries[index];
+            final imagePath = entry['imagePath'] as String?;
+            final caption = entry['text']?.toString() ?? '';
 
-                Color categoryColor(String category) {
-                  switch (category) {
-                    case 'DANE':
-                      return Colors.grey.shade300;
-                    case 'ADRES':
-                      return Colors.grey.shade400;
-                    case 'KOŁA':
-                      return Colors.grey.shade500;
-                    case 'KONT.':
-                      return Colors.grey.shade600;
-                    case 'ZADANIA':
-                      return Colors.grey.shade700;
-                    default:
-                      return Colors.grey.shade200;
-                  }
-                }
-                return Card(
-                  color: isMainCategory ? Colors.grey.shade500 : Colors.white,
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(10),
-                    leading: imagePath != null && imagePath.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(imagePath),
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.broken_image);
-                              },
-                            ),
-                          )
-                        : Container(
-                            width: 60,
-                            height: 60,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: categoryColor(category),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              category,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: category == 'ZADANIA' || category == 'KONTAKTY'
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-
-                    title: Text(
-                      entry['text'] ?? '',
-                      maxLines: 8,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FullScreenImage(
+                      photos: imageEntries,
+                      initialIndex: index,
                     ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        entry['dateTime'] ?? '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                  ),
+                );
+              },
+              onLongPress: () {
+                _deleteEntry(entry);
+              },
+              child: Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: Image.file(
+                          File(imagePath ?? ''),
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.broken_image);
+                          },
                         ),
                       ),
                     ),
-                    
-                    trailing: imagePath != null && imagePath.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.edit),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 4, 2, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              caption,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(Icons.edit, size: 17),
                             onPressed: () {
                               _editEntry(entry);
                             },
-                          )
-                        : null,
-
-                    onTap: () {
-                      if (imagePath != null && imagePath.isNotEmpty) {
-                        final photos = imageEntries;
-
-                        final initialIndex = photos.indexWhere(
-                          (photo) => photo['id'] == entry['id'],
-                        );
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FullScreenImage(
-                              photos: photos,
-                              initialIndex: initialIndex < 0 ? 0 : initialIndex,
-                            ),
                           ),
-                        );
-                      } else {
-                        _editEntry(entry);
-                      }
-                    },
-                  onLongPress: () {
-                    _deleteEntry(entry);
-                  },
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              );
+              ),
+            );
+          },
+        ),
+
+      const SizedBox(height: 10),
+
+      ...noteEntries.map((entry) {
+        final category = entry['category']?.toString() ?? 'WPIS';
+        final isMainCategory = category != 'WPIS';
+
+        Color categoryColor(String category) {
+          switch (category) {
+            case 'DANE':
+              return Colors.grey.shade300;
+            case 'ADRES':
+              return Colors.grey.shade400;
+            case 'AUTA':
+              return Colors.grey.shade500;
+            case 'KONT.':
+              return Colors.grey.shade600;
+            default:
+              return Colors.grey.shade200;
+          }
+        }
+
+        return Card(
+          color: isMainCategory ? Colors.grey.shade300 : Colors.white,
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(10),
+            leading: Container(
+              width: 60,
+              height: 60,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: categoryColor(category),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                category,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: category == 'KONT.' ? Colors.white : Colors.black,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            title: Text(
+              entry['text'] ?? '',
+              maxLines: 8,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                entry['dateTime'] ?? '',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            onTap: () {
+              _editEntry(entry);
+            },
+            onLongPress: () {
+              _deleteEntry(entry);
             },
           ),
-        ),
+        );
+      }),
+    ],
+  ),
+),
 
           Padding(
             padding: const EdgeInsets.all(12),
