@@ -697,10 +697,6 @@ class _EntryScreenState extends State<EntryScreen> {
                   onPressed: () => addEntryWithCategory('KONTAKTY'),
                   child: const Text('08.'),
                 ),
-                ElevatedButton(
-                  onPressed: () => addEntryWithCategory('ZADANIA'),
-                  child: const Text('ZADANIA'),
-                ),
               ],
             ),
           ),
@@ -720,6 +716,7 @@ class _EntryScreenState extends State<EntryScreen> {
                 final entry = entries[index];
                 final imagePath = entry['imagePath'] as String?;
                 final category = entry['category']?.toString() ?? 'WPIS';
+                final isMainCategory = category != 'WPIS';
 
                 Color categoryColor(String category) {
                   switch (category) {
@@ -738,6 +735,7 @@ class _EntryScreenState extends State<EntryScreen> {
                   }
                 }
                 return Card(
+                  color: isMainCategory ? Colors.grey.shade500 : Colors.white,
                   elevation: 2,
                   margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   shape: RoundedRectangleBorder(
@@ -781,7 +779,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
                     title: Text(
                       entry['text'] ?? '',
-                      maxLines: 4,
+                      maxLines: 8,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
