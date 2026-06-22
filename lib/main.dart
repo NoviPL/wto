@@ -71,6 +71,19 @@ class MainMenuScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   _MainMenuButton(
+                    title: 'FLOTA',
+                    icon: Icons.directions_car,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FleetScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _MainMenuButton(
                     title: 'KOMUNIKATY',
                     icon: Icons.campaign,
                     onTap: () {
@@ -1090,6 +1103,29 @@ class _EntryScreenState extends State<EntryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+class FleetScreen extends StatelessWidget {
+  const FleetScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Flota'),
+        centerTitle: true,
+      ),
+      body: const Center(
+        child: Text(
+          'Tu będzie lista samochodów',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

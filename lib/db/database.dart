@@ -184,7 +184,7 @@ class AppDatabase {
 
     return db.query(
       'years',
-      orderBy: 'year ASC',
+      orderBy: 'year DESC',
     );
   }
 }
