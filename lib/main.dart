@@ -1388,7 +1388,6 @@ class _UsersScreenState extends State<UsersScreen> {
               label: const Text('Dodaj'),
             )
           : null,
-      ),
       body: users.isEmpty
           ? const Center(
               child: Text(
