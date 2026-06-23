@@ -308,7 +308,7 @@ class AppDatabase {
           'name': 'Użytkownik 1',
           'isAdmin': 1,
           'pin': '0000',
-          }
+          },
           conflictAlgorithm: ConflictAlgorithm.ignore,
         );
 
@@ -456,6 +456,7 @@ class AppDatabase {
             {
               'id': 'USER_001',
               'name': 'Użytkownik 1',
+              'pin': '0000'
             },
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
