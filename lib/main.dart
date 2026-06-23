@@ -524,7 +524,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final level = message['level']?.toString() ?? 'OGŁOSZENIE';
     final dateTime = message['dateTime']?.toString() ?? '';
     final userId = message['userId']?.toString() ?? '';
-
     final color = messageColor(level);
     final isRead = message['isRead'] == 1;
 
@@ -616,6 +615,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final level = message['level']?.toString() ?? 'OGŁOSZENIE';
                 final dateTime = message['dateTime']?.toString() ?? '';
                 final color = messageColor(level);
+                final isRead = message['isRead'] == 1;
 
                 return Card(
                   color: isRead ? Colors.white : color.withOpacity(0.10),
