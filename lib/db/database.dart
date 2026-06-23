@@ -308,7 +308,7 @@ class AppDatabase {
           'id': 'USER_001',
           'name': 'Użytkownik 1',
           'isAdmin': 1,
-          'role': 'ADMIN'
+          'role': 'ADMIN',
           'pin': '0000',
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
