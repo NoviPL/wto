@@ -579,6 +579,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final level = message['level']?.toString() ?? 'OGŁOSZENIE';
     final dateTime = message['dateTime']?.toString() ?? '';
     final userId = message['userId']?.toString() ?? '';
+    final userName = await userNameById(userId);
     final color = messageColor(level);
     final isRead = message['isRead'] == 1;
 
@@ -621,7 +622,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ),
               const SizedBox(height: 18),
               Text(
-                '$dateTime\nID: $userId',
+                '$dateTime\n$userName',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
@@ -1702,16 +1703,24 @@ class _EntryScreenState extends State<EntryScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                '${entry['dateTime'] ?? ''}\n'
-                'ID: ${entry['userId'] ?? 'USER_001'}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
+            subtitle: FutureBuilder<String>(
+              future: userNameById(
+                entry['userId']?.toString() ?? 'USER_001',
               ),
+              builder: (context, snapshot) {
+                final userName = snapshot.data ?? 'Użytkownik';
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${entry['dateTime'] ?? ''}\n$userName',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                );
+              },
             ),
             onTap: () {
               _editEntry(entry);
@@ -1774,6 +1783,10 @@ class _EntryScreenState extends State<EntryScreen> {
 
 String currentUserId = 'USER_001';
 String currentUserName = 'Użytkownik 1';
+
+Future<String> userNameById(String userId) async {
+  return AppDatabase.getUserNameById(userId);
+}
 
 Color carColor(int index) {
   final colors = [
@@ -2515,7 +2528,7 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                                           ),
                                           const SizedBox(height: 8),
                                           Text(
-                                            '$dateTime\nID: $userId',
+                                            '$dateTime\n$userId',
                                             style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey,
@@ -2573,7 +2586,7 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              '$dateTime\nID: $userId',
+                              '$dateTime\n$userId',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,

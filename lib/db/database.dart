@@ -686,4 +686,18 @@ class AppDatabase {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+  static Future<String> getUserNameById(String userId) async {
+    final db = await database;
+
+    final result = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return userId;
+
+    return result.first['name']?.toString() ?? userId;
+  }
 }
