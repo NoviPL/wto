@@ -38,7 +38,23 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   @override
   void initState() {
     super.initState();
+
+    loadCurrentUser();
     loadUnreadMessagesCount();
+  }
+
+  Future<void> loadCurrentUser() async {
+    final user = await AppDatabase.getCurrentUser();
+
+    if (user == null) return;
+
+    if (!mounted) return;
+
+    setState(() {
+      currentUserId = user['id']?.toString() ?? 'USER_001';
+      currentUserName =
+          user['name']?.toString() ?? 'Użytkownik 1';
+    });
   }
 
   Future<void> loadUnreadMessagesCount() async {
@@ -72,6 +88,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   const SizedBox(height: 40),
                   const Text(
                     'WTO',
+                    const SizedBox(height: 8),
+
+                    Text(
+                      currentUserName,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 42,
@@ -122,6 +148,24 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       await loadUnreadMessagesCount();
                     },
                   ),
+                  const SizedBox(height: 16),
+                  _MainMenuButton(
+                    title: 'UŻYTKOWNICY',
+                    icon: Icons.people,
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UsersScreen(),
+                        ),
+                      );
+
+                      if (mounted) {
+                        setState(() {});
+                      }
+                    },
+                  ),
+
                   const SizedBox(height: 16),
                   _MainMenuButton(
                     title: 'INNE',
