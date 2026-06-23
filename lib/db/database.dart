@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -279,7 +279,8 @@ class AppDatabase {
             text TEXT NOT NULL,
             level TEXT NOT NULL,
             dateTime TEXT NOT NULL,
-            userId TEXT NOT NULL
+            userId TEXT NOT NULL,
+            isRead INTEGER DEFAULT 0
           )
         ''');
 
@@ -387,6 +388,13 @@ class AppDatabase {
               userId TEXT NOT NULL
             )
           ''');
+        }
+        if (oldVersion < 9) {
+          try {
+            await db.execute(
+              'ALTER TABLE messages ADD COLUMN isRead INTEGER DEFAULT 0',
+            );
+          } catch (_) {}
         }
       },
     );
@@ -512,7 +520,29 @@ class AppDatabase {
       'level': level,
       'dateTime': dateTime,
       'userId': userId,
+      'isRead': 0,
     });
+  }
+
+  static Future<void> markMessageAsRead(int id) async {
+    final db = await database;
+
+    await db.update(
+      'messages',
+      {'isRead': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<int> getUnreadMessagesCount() async {
+    final db = await database;
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM messages WHERE isRead = 0',
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   static Future<void> deleteMessage(int id) async {

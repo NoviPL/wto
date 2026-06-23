@@ -25,8 +25,31 @@ class WTOApp extends StatelessWidget {
   }
 }
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
+
+  @override
+  State<MainMenuScreen> createState() => _MainMenuScreenState();
+}
+
+class _MainMenuScreenState extends State<MainMenuScreen> {
+  int unreadMessagesCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUnreadMessagesCount();
+  }
+
+  Future<void> loadUnreadMessagesCount() async {
+    final count = await AppDatabase.getUnreadMessagesCount();
+
+    if (!mounted) return;
+
+    setState(() {
+      unreadMessagesCount = count;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,15 +107,19 @@ class MainMenuScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   _MainMenuButton(
-                    title: 'KOMUNIKATY',
+                    title: unreadMessagesCount > 0
+                        ? 'KOMUNIKATY ($unreadMessagesCount)'
+                        : 'KOMUNIKATY',
                     icon: Icons.campaign,
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const MessagesScreen(),
                         ),
                       );
+
+                      await loadUnreadMessagesCount();
                     },
                   ),
                   const SizedBox(height: 16),
@@ -487,7 +514,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
     await loadMessages();
   }
 
-  void openMessage(Map<String, dynamic> message) {
+  Future<void> openMessage(Map<String, dynamic> message) async {
+    if (message['isRead'] != 1) {
+      await AppDatabase.markMessageAsRead(message['id'] as int);
+      await loadMessages();
+    }
     final title = message['title']?.toString() ?? '';
     final text = message['text']?.toString() ?? '';
     final level = message['level']?.toString() ?? 'OGŁOSZENIE';
@@ -495,6 +526,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final userId = message['userId']?.toString() ?? '';
 
     final color = messageColor(level);
+    final isRead = message['isRead'] == 1;
 
     showDialog(
       context: context,
@@ -586,13 +618,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final color = messageColor(level);
 
                 return Card(
-                  elevation: 3,
+                  color: isRead ? Colors.white : color.withOpacity(0.10),
+                  elevation: isRead ? 2 : 6,
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: BorderSide(
                       color: color,
-                      width: 2,
+                      width: isRead ? 2 : 3,
                     ),
                   ),
                   child: ListTile(
@@ -600,18 +633,22 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     leading: CircleAvatar(
                       backgroundColor: color,
                       child: Icon(
-                        messageIcon(level),
+                        isRead ? Icons.mark_email_read : messageIcon(level),
                         color: Colors.white,
                       ),
                     ),
                     title: Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: isRead ? FontWeight.bold : FontWeight.w900,
                       ),
                     ),
-                    subtitle: Text('$level • $dateTime'),
+                    subtitle: Text(
+                      isRead
+                          ? '$level • $dateTime'
+                          : 'NIEPRZECZYTANE • $level • $dateTime',
+                    ),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => openMessage(message),
                     onLongPress: () => deleteMessage(message),
