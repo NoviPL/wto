@@ -88,7 +88,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   const SizedBox(height: 40),
                   const Text(
                     'WTO',
-                    const SizedBox(height: 8),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 42,
@@ -96,6 +95,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       letterSpacing: 3,
                     ),
                   ),
+
                   const SizedBox(height: 8),
 
                   Text(
