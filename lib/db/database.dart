@@ -288,7 +288,7 @@ class AppDatabase {
         await db.execute('''
           CREATE TABLE users (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL
+            name TEXT NOT NULL,
             isAdmin INTEGER DEFAULT 0
           )
         ''');
