@@ -856,15 +856,6 @@ class AppDatabase {
     return role == 'ADMIN' || role == 'EKSPERT';
   }
 
-  static Future<bool> canCurrentUserEditItem(String ownerUserId) async {
-    final role = await getCurrentUserRole();
-    final currentId = await getCurrentUserId();
-
-    if (role == 'ADMIN') return true;
-
-    return ownerUserId == currentId;
-  }
-
   static Future<void> updateMessage(
     int id,
     String title,
