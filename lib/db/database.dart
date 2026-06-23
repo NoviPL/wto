@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -221,7 +221,8 @@ class AppDatabase {
             category TEXT,
             text TEXT,
             dateTime TEXT,
-            imagePath TEXT
+            imagePath TEXT,
+            userId TEXT
           )
         ''');
 
@@ -396,6 +397,13 @@ class AppDatabase {
             );
           } catch (_) {}
         }
+        if (oldVersion < 10) {
+          try {
+            await db.execute(
+              'ALTER TABLE entries ADD COLUMN userId TEXT DEFAULT "USER_001"',
+            );
+          } catch (_) {}
+        }
       },
     );
   }
@@ -406,6 +414,7 @@ class AppDatabase {
     String text,
     String dateTime,
     String? imagePath,
+    String userId,
   ) async {
     final db = await database;
 
@@ -415,6 +424,7 @@ class AppDatabase {
       'text': text,
       'dateTime': dateTime,
       'imagePath': imagePath,
+      'userId': userId,
     });
   }
   static Future<String?> getLastImagePath(String number) async {

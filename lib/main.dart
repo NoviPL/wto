@@ -1013,6 +1013,7 @@ class _EntryScreenState extends State<EntryScreen> {
       '',
       time,
       null,
+      currentUserId,
     );
 
     await loadEntries();
@@ -1092,6 +1093,7 @@ class _EntryScreenState extends State<EntryScreen> {
             : 'Zdjęcie ${photoCount + i + 1}',
         time,
         savedImage.path,
+        currentUserId,
       );
     }
 
@@ -1130,6 +1132,7 @@ class _EntryScreenState extends State<EntryScreen> {
         text,
         time,
         null,
+        currentUserId,
       );
     } else {
       for (int i = 0; i < selectedImages.length; i++) {
@@ -1139,6 +1142,7 @@ class _EntryScreenState extends State<EntryScreen> {
           i == 0 && text.isNotEmpty ? text : 'Zdjecie',
           time,
           selectedImages[i].path,
+          currentUserId,
         );
       }
     }
@@ -1498,7 +1502,8 @@ class _EntryScreenState extends State<EntryScreen> {
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                entry['dateTime'] ?? '',
+                '${entry['dateTime'] ?? ''}\n'
+                'ID: ${entry['userId'] ?? 'USER_001'}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
