@@ -762,6 +762,21 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> deleteMessage(Map<String, dynamic> message) async {
+    final ownerId = message['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz usuwać tylko swoje komunikaty.'),
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -783,6 +798,139 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (confirm != true) return;
 
     await AppDatabase.deleteMessage(message['id'] as int);
+    await loadMessages();
+  }
+
+  Future<void> editMessage(Map<String, dynamic> message) async {
+    final ownerId = message['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz edytować tylko swoje komunikaty.'),
+        ),
+      );
+      return;
+    }
+
+    final titleController = TextEditingController(
+      text: message['title']?.toString() ?? '',
+    );
+
+    final textController = TextEditingController(
+      text: message['text']?.toString() ?? '',
+    );
+
+    String selectedLevel = message['level']?.toString() ?? 'OGŁOSZENIE';
+
+    if (selectedLevel == 'WAŻNE' && !canAddImportantMessages) {
+      selectedLevel = 'ISTOTNE';
+    }
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edytuj komunikat'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tytuł komunikatu',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: textController,
+                      keyboardType: TextInputType.multiline,
+                      minLines: 4,
+                      maxLines: 8,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        labelText: 'Treść komunikatu',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedLevel,
+                      decoration: const InputDecoration(
+                        labelText: 'Ważność',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        if (canAddImportantMessages)
+                          const DropdownMenuItem(
+                            value: 'WAŻNE',
+                            child: Text('Czerwony - ważne'),
+                          ),
+                        const DropdownMenuItem(
+                          value: 'ISTOTNE',
+                          child: Text('Żółty - istotne'),
+                        ),
+                        const DropdownMenuItem(
+                          value: 'OGŁOSZENIE',
+                          child: Text('Szary - ogłoszenie'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+
+                        setDialogState(() {
+                          selectedLevel = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Anuluj'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final title = titleController.text.trim();
+                    final text = textController.text.trim();
+
+                    if (title.isEmpty || text.isEmpty) return;
+
+                    Navigator.of(dialogContext).pop({
+                      'title': title,
+                      'text': text,
+                      'level': selectedLevel,
+                    });
+                  },
+                  child: const Text('Zapisz'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+
+    await AppDatabase.updateMessage(
+      message['id'] as int,
+      result['title'] ?? '',
+      result['text'] ?? '',
+      result['level'] ?? 'OGŁOSZENIE',
+    );
+
     await loadMessages();
   }
 
@@ -924,7 +1072,34 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => openMessage(message),
-                    onLongPress: () => deleteMessage(message),
+                    onLongPress: () {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (sheetContext) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.edit),
+                                title: const Text('Edytuj'),
+                                onTap: () {
+                                  Navigator.pop(sheetContext);
+                                  editMessage(message);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.delete),
+                                title: const Text('Usuń'),
+                                onTap: () {
+                                  Navigator.pop(sheetContext);
+                                  deleteMessage(message);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },
@@ -1889,7 +2064,22 @@ class _EntryScreenState extends State<EntryScreen> {
     loadEntries();
   }
 
-  void _editEntry(Map<String, dynamic> entry) {
+  void _editEntry(Map<String, dynamic> entry) async {
+    final ownerId = entry['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz edytować tylko swoje wpisy.'),
+        ),
+      );
+      return;
+    }
+
     final editController =
         TextEditingController(text: entry['text']);
 
@@ -1942,7 +2132,21 @@ class _EntryScreenState extends State<EntryScreen> {
     );
   }
 
-  void _deleteEntry(Map<String, dynamic> entry) {
+  void _deleteEntry(Map<String, dynamic> entry) async {
+    final ownerId = entry['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz usuwać tylko swoje wpisy.'),
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2532,28 +2736,30 @@ class _FleetScreenState extends State<FleetScreen> {
                       style: const TextStyle(color: Colors.white70),
                     ),
                     isThreeLine: plate.isNotEmpty,
-                    trailing: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: Colors.white),
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          _showCarDialog(car: car);
-                        }
+                    trailing: canManageFleet
+                        ? PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _showCarDialog(car: car);
+                              }
 
-                        if (value == 'delete') {
-                          _deleteCar(car);
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Edytuj'),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Usuń'),
-                        ),
-                      ],
-                    ),
+                              if (value == 'delete') {
+                                _deleteCar(car);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edytuj'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Usuń'),
+                              ),
+                            ],
+                          )
+                        : const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () async {
                       await Navigator.push(
                         context,
@@ -2864,6 +3070,21 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
   }
 
   Future<void> editNote(Map<String, dynamic> note) async {
+    final ownerId = note['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz edytować tylko swoje notatki.'),
+        ),
+      );
+      return;
+    }
+
     final editController = TextEditingController(
       text: note['text']?.toString() ?? '',
     );
@@ -2914,6 +3135,21 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
   }
 
   Future<void> deleteNote(Map<String, dynamic> note) async {
+    final ownerId = note['userId']?.toString() ?? '';
+
+    final canEdit = await AppDatabase.canCurrentUserEditItem(ownerId);
+
+    if (!canEdit) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Możesz usuwać tylko swoje notatki.'),
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
