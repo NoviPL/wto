@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -289,7 +289,8 @@ class AppDatabase {
           CREATE TABLE users (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            isAdmin INTEGER DEFAULT 0
+            isAdmin INTEGER DEFAULT 0,
+            pin TEXT DEFAULT '0000'
           )
         ''');
 
@@ -300,11 +301,16 @@ class AppDatabase {
           )
         ''');
 
-        await db.insert('users', {
+        await db.insert(
+          'users', 
+          {
           'id': 'USER_001',
           'name': 'Użytkownik 1',
           'isAdmin': 1,
-        });
+          'pin': '0000',
+          }
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
 
         await db.insert('app_settings', {
           'key': 'currentUserId',
@@ -476,6 +482,13 @@ class AppDatabase {
             where: 'id = ?',
             whereArgs: ['USER_001'],
           );
+        }
+        if (oldVersion < 13) {
+          try {
+            await db.execute(
+              'ALTER TABLE users ADD COLUMN pin TEXT DEFAULT "0000"',
+            );
+          } catch (_) {}
         }
       },
     );
@@ -742,5 +755,17 @@ class AppDatabase {
     final user = await getCurrentUser();
 
     return user?['isAdmin'] == 1;
+  }
+  static Future<bool> checkUserPin(String userId, String pin) async {
+    final db = await database;
+
+    final result = await db.query(
+      'users',
+      where: 'id = ? AND pin = ?',
+      whereArgs: [userId, pin],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
   }
 }

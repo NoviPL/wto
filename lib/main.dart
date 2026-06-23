@@ -30,7 +30,185 @@ class WTOApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         useMaterial3: true,
       ),
-      home: const MainMenuScreen(),
+      home: const LoginScreen(),
+    );
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  List<Map<String, dynamic>> users = [];
+  Map<String, dynamic>? selectedUser;
+  final pinController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
+
+  Future<void> loadUsers() async {
+    final data = await AppDatabase.getUsers();
+
+    if (!mounted) return;
+
+    setState(() {
+      users = data;
+      if (data.isNotEmpty) {
+        selectedUser = data.first;
+      }
+    });
+  }
+
+  Future<void> login() async {
+    if (selectedUser == null) return;
+
+    final pin = pinController.text.trim();
+    final userId = selectedUser!['id']?.toString() ?? 'USER_001';
+    final userName = selectedUser!['name']?.toString() ?? 'Użytkownik';
+
+    final ok = await AppDatabase.checkUserPin(userId, pin);
+
+    if (!ok) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nieprawidłowy PIN'),
+        ),
+      );
+      return;
+    }
+
+    await AppDatabase.setCurrentUserId(userId);
+
+    currentUserId = userId;
+    currentUserName = userName;
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const MainMenuScreen(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    pinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.blueGrey.shade900,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.lock,
+                      size: 64,
+                      color: Colors.blueGrey,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Logowanie WTO',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      value: selectedUser,
+                      decoration: const InputDecoration(
+                        labelText: 'Użytkownik',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: users.map((user) {
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: user,
+                          child: Text(user['name']?.toString() ?? ''),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedUser = value;
+                          pinController.clear();
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    TextField(
+                      controller: pinController,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'PIN',
+                        border: OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      onSubmitted: (_) => login(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: login,
+                        icon: const Icon(Icons.login),
+                        label: const Text(
+                          'Wejdź',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Domyślny PIN: 0000',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
