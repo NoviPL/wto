@@ -89,20 +89,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   const Text(
                     'WTO',
                     const SizedBox(height: 8),
-
-                    Text(
-                      currentUserName,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 42,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Text(
+                    currentUserName,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const Spacer(),
