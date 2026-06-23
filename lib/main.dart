@@ -1260,6 +1260,73 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
+  Future<void> changeUserRole(Map<String, dynamic> user) async {
+    if (!isAdmin) return;
+
+    final id = user['id']?.toString() ?? '';
+    final name = user['name']?.toString() ?? '';
+    String selectedRole = user['role']?.toString() ?? 'USER';
+
+    final role = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Uprawnienia: $name'),
+              content: DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Rola użytkownika',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'ADMIN',
+                    child: Text('Administrator'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'EKSPERT',
+                    child: Text('Ekspert'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'USER',
+                    child: Text('Użytkownik'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  setDialogState(() {
+                    selectedRole = value;
+                  });
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Anuluj'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(selectedRole);
+                  },
+                  child: const Text('Zapisz'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (role == null) return;
+
+    await AppDatabase.updateUserRole(id, role);
+
+    await loadUsers();
+  }
+
   Future<void> resetUserPin(Map<String, dynamic> user) async {
     if (!isAdmin) return;
 
@@ -1325,7 +1392,9 @@ class _UsersScreenState extends State<UsersScreen> {
                 final id = user['id']?.toString() ?? '';
                 final name = user['name']?.toString() ?? '';
                 final isSelected = id == currentUserId;
-                final userIsAdmin = user['isAdmin'] == 1;
+                final role = user['role']?.toString() ?? 'USER';
+                final userIsAdmin = role == 'ADMIN';
+                final userIsExpert = role == 'EKSPERT';
 
                 return Card(
                   color: isSelected ? Colors.green.shade50 : Colors.white,
@@ -1343,7 +1412,11 @@ class _UsersScreenState extends State<UsersScreen> {
                       backgroundColor:
                           isSelected ? Colors.green : Colors.blueGrey,
                       child: Icon(
-                        userIsAdmin ? Icons.admin_panel_settings : Icons.person,
+                        userIsAdmin
+                            ? Icons.admin_panel_settings
+                            : userIsExpert
+                                ? Icons.verified_user
+                                : Icons.person,
                         color: Colors.white,
                       ),
                     ),
@@ -1354,13 +1427,21 @@ class _UsersScreenState extends State<UsersScreen> {
                       ),
                     ),
                     subtitle: Text(
-                      userIsAdmin ? '$id • ADMINISTRATOR' : id,
+                      role == 'ADMIN'
+                          ? '$id • ADMINISTRATOR'
+                          : role == 'EKSPERT'
+                              ? '$id • EKSPERT'
+                              : '$id • UŻYTKOWNIK',
                     ),
                     trailing: isAdmin
                         ? PopupMenuButton<String>(
                             onSelected: (value) {
                               if (value == 'edit') {
                                 editUser(user);
+                              }
+
+                              if (value == 'role') {
+                                changeUserRole(user);
                               }
 
                               if (value == 'pin') {
@@ -1379,6 +1460,10 @@ class _UsersScreenState extends State<UsersScreen> {
                               const PopupMenuItem(
                                 value: 'edit',
                                 child: Text('Edytuj nazwę'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'role',
+                                child: Text('Uprawnienia'),
                               ),
                               const PopupMenuItem(
                                 value: 'pin',

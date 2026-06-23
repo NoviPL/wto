@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -290,6 +290,7 @@ class AppDatabase {
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             isAdmin INTEGER DEFAULT 0,
+            role TEXT DEFAULT 'USER',
             pin TEXT DEFAULT '0000'
           )
         ''');
@@ -307,6 +308,7 @@ class AppDatabase {
           'id': 'USER_001',
           'name': 'Użytkownik 1',
           'isAdmin': 1,
+          'role': 'ADMIN'
           'pin': '0000',
           },
           conflictAlgorithm: ConflictAlgorithm.ignore,
@@ -491,6 +493,23 @@ class AppDatabase {
             );
           } catch (_) {}
         }
+        if (oldVersion < 14) {
+          try {
+            await db.execute(
+              'ALTER TABLE users ADD COLUMN role TEXT DEFAULT "USER"',
+            );
+          } catch (_) {}
+
+          await db.update(
+            'users',
+            {
+              'role': 'ADMIN',
+              'isAdmin': 1,
+            },
+            where: 'id = ?',
+            whereArgs: ['USER_001'],
+          );
+        }
       },
     );
   }
@@ -669,6 +688,8 @@ class AppDatabase {
         'id': id,
         'name': name,
         'isAdmin': 0,
+        'role': 'USER',
+        'pin': '0000',
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -792,5 +813,46 @@ class AppDatabase {
       where: 'key = ?',
       whereArgs: ['currentUserId'],
     );
+  }
+  static Future<void> updateUserRole(String id, String role) async {
+    final db = await database;
+
+    await db.update(
+      'users',
+      {
+        'role': role,
+        'isAdmin': role == 'ADMIN' ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<String> getCurrentUserRole() async {
+    final user = await getCurrentUser();
+
+    return user?['role']?.toString() ?? 'USER';
+  }
+
+  static Future<bool> isCurrentUserExpert() async {
+    final role = await getCurrentUserRole();
+
+    return role == 'EKSPERT' || role == 'ADMIN';
+  }
+
+  static Future<bool> canCurrentUserEditItem(String itemUserId) async {
+    final role = await getCurrentUserRole();
+
+    if (role == 'ADMIN') return true;
+
+    final currentId = await getCurrentUserId();
+
+    return currentId == itemUserId;
+  }
+
+  static Future<bool> canCurrentUserAddImportantMessages() async {
+    final role = await getCurrentUserRole();
+
+    return role == 'ADMIN' || role == 'EKSPERT';
   }
 }
