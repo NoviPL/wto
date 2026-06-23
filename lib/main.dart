@@ -2120,22 +2120,6 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
     await loadNotes();
   }
 
-  List<Map<String, dynamic>> get photoNotes {
-    return notes
-        .where((note) =>
-            note['imagePath'] != null &&
-            note['imagePath'].toString().isNotEmpty)
-        .toList();
-  }
-
-  List<Map<String, dynamic>> get textNotes {
-    return notes
-        .where((note) =>
-            note['imagePath'] == null ||
-            note['imagePath'].toString().isEmpty)
-        .toList();
-  }
-
   Future<void> deleteNote(Map<String, dynamic> note) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -2205,154 +2189,177 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                       style: TextStyle(fontSize: 18),
                     ),
                   )
-                : ListView(
+                : ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    children: [
-                      if (photoNotes.isNotEmpty) ...[
-                        Text(
-                          'Zdjęcia (${photoNotes.length})',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: photoNotes.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            childAspectRatio: 0.72,
-                          ),
-                          itemBuilder: (context, index) {
-                            final note = photoNotes[index];
-                            final text = note['text']?.toString() ?? '';
+                    itemCount: notes.length,
+                    itemBuilder: (context, index) {
+                      final note = notes[index];
+                      final text = note['text']?.toString() ?? '';
+                      final dateTime = note['dateTime']?.toString() ?? '';
+                      final userId = note['userId']?.toString() ?? '';
+                      final imagePath = note['imagePath']?.toString() ?? '';
+                      final hasImage = imagePath.isNotEmpty;
 
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => FullScreenImage(
-                                      photos: photoNotes,
-                                      initialIndex: index,
+                      final photoNotes = notes
+                          .where((n) =>
+                              n['imagePath'] != null &&
+                              n['imagePath'].toString().isNotEmpty)
+                          .toList();
+
+                      final photoIndex = photoNotes.indexWhere(
+                        (n) => n['id'] == note['id'],
+                      );
+
+                      if (hasImage) {
+                        return Card(
+                          elevation: 4,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          clipBehavior: Clip.antiAlias,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FullScreenImage(
+                                        photos: photoNotes,
+                                        initialIndex: photoIndex < 0 ? 0 : photoIndex,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                              onLongPress: () => deleteNote(note),
-                              child: Card(
-                                elevation: 4,
-                                clipBehavior: Clip.antiAlias,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  );
+                                },
+                                child: Image.file(
+                                  File(imagePath),
+                                  width: double.infinity,
+                                  height: 220,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 220,
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.broken_image, size: 60),
+                                    );
+                                  },
                                 ),
-                                child: Column(
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    const Icon(Icons.photo, size: 22),
+                                    const SizedBox(width: 8),
                                     Expanded(
-                                      child: Image.file(
-                                        File(note['imagePath']),
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return const Icon(Icons.broken_image);
-                                        },
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            text,
+                                            maxLines: 6,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            '$dateTime\nID: $userId',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Text(
-                                        text,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          editNote(note);
+                                        }
+
+                                        if (value == 'delete') {
+                                          deleteNote(note);
+                                        }
+                                      },
+                                      itemBuilder: (context) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edytuj'),
                                         ),
-                                      ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text('Usuń'),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      if (textNotes.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Notatki (${textNotes.length})',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-
-                      ...textNotes.map((note) {
-                        final text = note['text']?.toString() ?? '';
-                        final dateTime = note['dateTime']?.toString() ?? '';
-                        final userId = note['userId']?.toString() ?? '';
-
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(12),
-                            title: Text(
-                              text,
-                              maxLines: 8,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                '$dateTime\nID: $userId',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  editNote(note);
-                                }
-
-                                if (value == 'delete') {
-                                  deleteNote(note);
-                                }
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Text('Edytuj'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Usuń'),
-                                ),
-                              ],
-                            ),
-                            onTap: () => editNote(note),
-                            onLongPress: () => deleteNote(note),
+                            ],
                           ),
                         );
-                      }),
-                    ],
+                      }
+
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(12),
+                          title: Text(
+                            text,
+                            maxLines: 8,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              '$dateTime\nID: $userId',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                editNote(note);
+                              }
+
+                              if (value == 'delete') {
+                                deleteNote(note);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edytuj'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Usuń'),
+                              ),
+                            ],
+                          ),
+                          onTap: () => editNote(note),
+                          onLongPress: () => deleteNote(note),
+                        ),
+                      );
+                    },
                   ),
           ),
           Padding(
