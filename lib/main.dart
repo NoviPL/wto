@@ -44,7 +44,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   List<Map<String, dynamic>> users = [];
-  Map<String, dynamic>? selectedUser;
+  String? selectedUserId;
   final pinController = TextEditingController();
 
   @override
@@ -61,17 +61,22 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       users = data;
       if (data.isNotEmpty) {
-        selectedUser = data.first;
+        selectedUserId = data.first['id']?.toString();
       }
     });
   }
 
   Future<void> login() async {
-    if (selectedUser == null) return;
+    if (selectedUserId == null) return;
 
     final pin = pinController.text.trim();
-    final userId = selectedUser!['id']?.toString() ?? 'USER_001';
-    final userName = selectedUser!['name']?.toString() ?? 'Użytkownik';
+
+    final selectedUser = users.firstWhere(
+      (user) => user['id']?.toString() == selectedUserId,
+    );
+
+    final userId = selectedUser['id']?.toString() ?? 'USER_001';
+    final userName = selectedUser['name']?.toString() ?? 'Użytkownik';
 
     final ok = await AppDatabase.checkUserPin(userId, pin);
 
@@ -140,21 +145,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    DropdownButtonFormField<Map<String, dynamic>>(
-                      value: selectedUser,
+                    DropdownButtonFormField<String>(
+                      value: selectedUserId,
                       decoration: const InputDecoration(
                         labelText: 'Użytkownik',
                         border: OutlineInputBorder(),
                       ),
                       items: users.map((user) {
-                        return DropdownMenuItem<Map<String, dynamic>>(
-                          value: user,
-                          child: Text(user['name']?.toString() ?? ''),
+                        final id = user['id']?.toString() ?? '';
+                        final name = user['name']?.toString() ?? '';
+
+                        return DropdownMenuItem<String>(
+                          value: id,
+                          child: Text(name),
                         );
                       }).toList(),
                       onChanged: (value) {
                         setState(() {
-                          selectedUser = value;
+                          selectedUserId = value;
                           pinController.clear();
                         });
                       },
