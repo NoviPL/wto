@@ -450,6 +450,7 @@ class YearsScreen extends StatefulWidget {
 
 class _YearsScreenState extends State<YearsScreen> {
   List<Map<String, dynamic>> years = [];
+  bool canAddYears = false;
 
   @override
   void initState() {
@@ -459,11 +460,13 @@ class _YearsScreenState extends State<YearsScreen> {
 
   Future<void> loadYears() async {
     final data = await AppDatabase.getYears();
+    final expert = await AppDatabase.isCurrentUserExpert();
 
     if (!mounted) return;
 
     setState(() {
       years = data;
+      canAddYears = expert;
     });
   }
 
@@ -516,11 +519,13 @@ class _YearsScreenState extends State<YearsScreen> {
         title: const Text('Zadania'),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddYearDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Dodaj rok'),
-      ),
+      floatingActionButton: canAddYears
+          ? FloatingActionButton.extended(
+              onPressed: _showAddYearDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Dodaj rok'),
+            )
+          : null,
       body: years.isEmpty
           ? const Center(
               child: Text(
@@ -599,6 +604,7 @@ class MessagesScreen extends StatefulWidget {
 
 class _MessagesScreenState extends State<MessagesScreen> {
   List<Map<String, dynamic>> messages = [];
+  bool canAddImportantMessages = false;
 
   @override
   void initState() {
@@ -608,11 +614,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> loadMessages() async {
     final data = await AppDatabase.getMessages();
+    final important = await AppDatabase.canCurrentUserAddImportantMessages();
 
     if (!mounted) return;
 
     setState(() {
       messages = data;
+      canAddImportantMessages = important;
     });
   }
 
@@ -641,7 +649,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> showAddMessageDialog() async {
     final titleController = TextEditingController();
     final textController = TextEditingController();
-    String selectedLevel = 'WAŻNE';
+    String selectedLevel = canAddImportantMessages ? 'WAŻNE' : 'ISTOTNE';
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -681,16 +689,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         labelText: 'Ważność',
                         border: OutlineInputBorder(),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'WAŻNE',
-                          child: Text('Czerwony - ważne'),
-                        ),
-                        DropdownMenuItem(
+                      items: [
+                        if (canAddImportantMessages)
+                          const DropdownMenuItem(
+                            value: 'WAŻNE',
+                            child: Text('Czerwony - ważne'),
+                          ),
+                        const DropdownMenuItem(
                           value: 'ISTOTNE',
                           child: Text('Żółty - istotne'),
                         ),
-                        DropdownMenuItem(
+                        const DropdownMenuItem(
                           value: 'OGŁOSZENIE',
                           child: Text('Szary - ogłoszenie'),
                         ),
@@ -1372,10 +1381,13 @@ class _UsersScreenState extends State<UsersScreen> {
         title: const Text('Użytkownicy'),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: addUser,
-        icon: const Icon(Icons.add),
-        label: const Text('Dodaj'),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: addUser,
+              icon: const Icon(Icons.add),
+              label: const Text('Dodaj'),
+            )
+          : null,
       ),
       body: users.isEmpty
           ? const Center(
@@ -2330,6 +2342,7 @@ class FleetScreen extends StatefulWidget {
 
 class _FleetScreenState extends State<FleetScreen> {
   List<Map<String, dynamic>> cars = [];
+  bool canManageFleet = false;
 
   @override
   void initState() {
@@ -2339,11 +2352,13 @@ class _FleetScreenState extends State<FleetScreen> {
 
   Future<void> loadCars() async {
     final data = await AppDatabase.getCars();
+    final expert = await AppDatabase.isCurrentUserExpert();
 
     if (!mounted) return;
 
     setState(() {
       cars = data;
+      canManageFleet = expert;
     });
   }
 
@@ -2464,11 +2479,13 @@ class _FleetScreenState extends State<FleetScreen> {
         title: const Text('Flota'),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCarDialog(),
-        icon: const Icon(Icons.add),
-        label: const Text('Dodaj auto'),
-      ),
+      floatingActionButton: canManageFleet
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCarDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Dodaj auto'),
+            )
+          : null,
       body: cars.isEmpty
           ? const Center(
               child: Text(
@@ -3208,10 +3225,13 @@ class _CarTermsScreenState extends State<CarTermsScreen> {
   String? acDate;
   String? btDate;
 
+  bool canManageTerms = false;
+
   @override
   void initState() {
     super.initState();
     loadTerms();
+    loadPermissions();
   }
 
   Future<void> loadTerms() async {
@@ -3223,6 +3243,16 @@ class _CarTermsScreenState extends State<CarTermsScreen> {
       ocDate = data?['ocDate']?.toString();
       acDate = data?['acDate']?.toString();
       btDate = data?['btDate']?.toString();
+    });
+  }
+
+  Future<void> loadPermissions() async {
+    final expert = await AppDatabase.isCurrentUserExpert();
+
+    if (!mounted) return;
+
+    setState(() {
+      canManageTerms = expert;
     });
   }
 
@@ -3332,11 +3362,11 @@ class _CarTermsScreenState extends State<CarTermsScreen> {
             fontSize: 14,
           ),
         ),
-        trailing: const Icon(
-          Icons.edit_calendar,
+        trailing: Icon(
+          canManageTerms ? Icons.edit_calendar : Icons.lock,
           color: Colors.white,
         ),
-        onTap: () => pickTerm(type),
+        onTap: canManageTerms ? () => pickTerm(type) : null,
       ),
     );
   }
