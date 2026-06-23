@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -289,6 +289,7 @@ class AppDatabase {
           CREATE TABLE users (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL
+            isAdmin INTEGER DEFAULT 0
           )
         ''');
 
@@ -302,6 +303,7 @@ class AppDatabase {
         await db.insert('users', {
           'id': 'USER_001',
           'name': 'Użytkownik 1',
+          'isAdmin': 1,
         });
 
         await db.insert('app_settings', {
@@ -459,6 +461,20 @@ class AppDatabase {
               'value': 'USER_001',
             },
             conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+        if (oldVersion < 12) {
+          try {
+            await db.execute(
+              'ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0',
+            );
+          } catch (_) {}
+
+          await db.update(
+            'users',
+            {'isAdmin': 1},
+            where: 'id = ?',
+            whereArgs: ['USER_001'],
           );
         }
       },
@@ -638,6 +654,7 @@ class AppDatabase {
       {
         'id': id,
         'name': name,
+        'isAdmin': 0,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
@@ -699,5 +716,31 @@ class AppDatabase {
     if (result.isEmpty) return userId;
 
     return result.first['name']?.toString() ?? userId;
+  }
+  static Future<void> updateUserName(String id, String name) async {
+    final db = await database;
+
+    await db.update(
+      'users',
+      {'name': name},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> deleteUser(String id) async {
+    final db = await database;
+
+    await db.delete(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<bool> isCurrentUserAdmin() async {
+    final user = await getCurrentUser();
+
+    return user?['isAdmin'] == 1;
   }
 }

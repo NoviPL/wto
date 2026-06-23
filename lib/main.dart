@@ -834,6 +834,7 @@ class UsersScreen extends StatefulWidget {
 
 class _UsersScreenState extends State<UsersScreen> {
   List<Map<String, dynamic>> users = [];
+  bool isAdmin = false;
 
   @override
   void initState() {
@@ -843,11 +844,13 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Future<void> loadUsers() async {
     final data = await AppDatabase.getUsers();
+    final admin = await AppDatabase.isCurrentUserAdmin();
 
     if (!mounted) return;
 
     setState(() {
       users = data;
+      isAdmin = admin;
     });
   }
 
@@ -903,6 +906,95 @@ class _UsersScreenState extends State<UsersScreen> {
     if (!mounted) return;
 
     Navigator.pop(context, true);
+  }
+
+  Future<void> editUser(Map<String, dynamic> user) async {
+    if (!isAdmin) return;
+
+    final controller = TextEditingController(
+      text: user['name']?.toString() ?? '',
+    );
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edytuj użytkownika'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nazwa użytkownika',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) return;
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Zapisz'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty) return;
+
+    await AppDatabase.updateUserName(
+      user['id']?.toString() ?? '',
+      name,
+    );
+
+    if (user['id'] == currentUserId) {
+      currentUserName = name;
+    }
+
+    await loadUsers();
+  }
+
+  Future<void> deleteUser(Map<String, dynamic> user) async {
+    if (!isAdmin) return;
+
+    final id = user['id']?.toString() ?? '';
+    final name = user['name']?.toString() ?? '';
+
+    if (id == currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nie możesz usunąć aktywnego użytkownika.'),
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń użytkownika'),
+        content: Text('Czy na pewno usunąć użytkownika $name?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.deleteUser(id);
+    await loadUsers();
   }
 
   @override
@@ -961,9 +1053,31 @@ class _UsersScreenState extends State<UsersScreen> {
                       ),
                     ),
                     subtitle: Text(id),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : const Icon(Icons.arrow_forward_ios),
+                    trailing: isAdmin
+                        ? PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                editUser(user);
+                              }
+
+                              if (value == 'delete') {
+                                deleteUser(user);
+                              }
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edytuj'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Usuń'),
+                              ),
+                            ],
+                          )
+                        : isSelected
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : const Icon(Icons.arrow_forward_ios),
                     onTap: () => selectUser(user),
                   ),
                 );
