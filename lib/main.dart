@@ -5,7 +5,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final user = await AppDatabase.getCurrentUser();
+
+  if (user != null) {
+    currentUserId = user['id']?.toString() ?? 'USER_001';
+    currentUserName =
+        user['name']?.toString() ?? 'Użytkownik 1';
+  }
+
   runApp(const WTOApp());
 }
 
