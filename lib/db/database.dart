@@ -212,7 +212,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -284,6 +284,30 @@ class AppDatabase {
             isRead INTEGER DEFAULT 0
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+          )
+        ''');
+
+        await db.insert('users', {
+          'id': 'USER_001',
+          'name': 'Użytkownik 1',
+        });
+
+        await db.insert('app_settings', {
+          'key': 'currentUserId',
+          'value': 'USER_001',
+        });
 
         await db.insert('years', {'year': 2025});
         await db.insert('years', {'year': 2026});
@@ -403,6 +427,39 @@ class AppDatabase {
               'ALTER TABLE entries ADD COLUMN userId TEXT DEFAULT "USER_001"',
             );
           } catch (_) {}
+        }
+        if (oldVersion < 11) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL
+            )
+          ''');
+
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS app_settings (
+              key TEXT PRIMARY KEY,
+              value TEXT
+            )
+          ''');
+
+          await db.insert(
+            'users',
+            {
+              'id': 'USER_001',
+              'name': 'Użytkownik 1',
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+
+          await db.insert(
+            'app_settings',
+            {
+              'key': 'currentUserId',
+              'value': 'USER_001',
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
         }
       },
     );
@@ -562,6 +619,71 @@ class AppDatabase {
       'messages',
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+  static Future<List<Map<String, dynamic>>> getUsers() async {
+    final db = await database;
+
+    return db.query(
+      'users',
+      orderBy: 'name ASC',
+    );
+  }
+
+  static Future<void> insertUser(String id, String name) async {
+    final db = await database;
+
+    await db.insert(
+      'users',
+      {
+        'id': id,
+        'name': name,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<String> getCurrentUserId() async {
+    final db = await database;
+
+    final result = await db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['currentUserId'],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return 'USER_001';
+
+    return result.first['value']?.toString() ?? 'USER_001';
+  }
+
+  static Future<Map<String, dynamic>?> getCurrentUser() async {
+    final db = await database;
+    final userId = await getCurrentUserId();
+
+    final result = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first;
+  }
+
+  static Future<void> setCurrentUserId(String userId) async {
+    final db = await database;
+
+    await db.insert(
+      'app_settings',
+      {
+        'key': 'currentUserId',
+        'value': userId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 }

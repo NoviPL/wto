@@ -769,6 +769,154 @@ class OtherScreen extends StatelessWidget {
   }
 }
 
+class UsersScreen extends StatefulWidget {
+  const UsersScreen({super.key});
+
+  @override
+  State<UsersScreen> createState() => _UsersScreenState();
+}
+
+class _UsersScreenState extends State<UsersScreen> {
+  List<Map<String, dynamic>> users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
+
+  Future<void> loadUsers() async {
+    final data = await AppDatabase.getUsers();
+
+    if (!mounted) return;
+
+    setState(() {
+      users = data;
+    });
+  }
+
+  Future<void> addUser() async {
+    final controller = TextEditingController();
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dodaj użytkownika'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Imię / nazwa użytkownika',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) return;
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Dodaj'),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty) return;
+
+    final id = 'USER_${DateTime.now().millisecondsSinceEpoch}';
+
+    await AppDatabase.insertUser(id, name);
+    await loadUsers();
+  }
+
+  Future<void> selectUser(Map<String, dynamic> user) async {
+    final id = user['id']?.toString() ?? 'USER_001';
+    final name = user['name']?.toString() ?? 'Użytkownik';
+
+    await AppDatabase.setCurrentUserId(id);
+
+    currentUserId = id;
+    currentUserName = name;
+
+    if (!mounted) return;
+
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Użytkownicy'),
+        centerTitle: true,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: addUser,
+        icon: const Icon(Icons.add),
+        label: const Text('Dodaj'),
+      ),
+      body: users.isEmpty
+          ? const Center(
+              child: Text(
+                'Brak użytkowników.',
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                final id = user['id']?.toString() ?? '';
+                final name = user['name']?.toString() ?? '';
+                final isSelected = id == currentUserId;
+
+                return Card(
+                  color: isSelected ? Colors.green.shade50 : Colors.white,
+                  elevation: isSelected ? 5 : 2,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: isSelected ? Colors.green : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          isSelected ? Colors.green : Colors.blueGrey,
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(id),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : const Icon(Icons.arrow_forward_ios),
+                    onTap: () => selectUser(user),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
 class NumberStatus {
   final int count;
   final String? imagePath;
@@ -1569,7 +1717,8 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 }
 
-const String currentUserId = 'USER_001';
+String currentUserId = 'USER_001';
+String currentUserName = 'Użytkownik 1';
 
 Color carColor(int index) {
   final colors = [
