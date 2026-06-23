@@ -2458,6 +2458,7 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                       final userId = note['userId']?.toString() ?? '';
                       final imagePath = note['imagePath']?.toString() ?? '';
                       final hasImage = imagePath.isNotEmpty;
+                      final userNameFuture = userNameById(userId);
 
                       final photoNotes = notes
                           .where((n) =>
@@ -2527,12 +2528,17 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                                             ),
                                           ),
                                           const SizedBox(height: 8),
-                                          Text(
-                                            '$dateTime\n$userId',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                          FutureBuilder<String>(
+                                            future: userNameFuture,
+                                            builder: (context, snapshot) {
+                                              return Text(
+                                                '$dateTime\n${snapshot.data ?? userId}',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
@@ -2585,12 +2591,17 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                           ),
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              '$dateTime\n$userId',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                            child: FutureBuilder<String>(
+                              future: userNameFuture,
+                              builder: (context, snapshot) {
+                                return Text(
+                                  '$dateTime\n${snapshot.data ?? userId}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           trailing: PopupMenuButton<String>(
