@@ -1779,7 +1779,7 @@ class _FleetScreenState extends State<FleetScreen> {
   }
 }
 
-class CarDetailsScreen extends StatelessWidget {
+class CarDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> car;
 
   const CarDetailsScreen({
@@ -1788,10 +1788,15 @@ class CarDetailsScreen extends StatelessWidget {
   });
 
   @override
+  State<CarDetailsScreen> createState() => _CarDetailsScreenState();
+}
+
+class _CarDetailsScreenState extends State<CarDetailsScreen> {
+  @override
   Widget build(BuildContext context) {
-    final name = car['name']?.toString() ?? '';
-    final plate = car['plate']?.toString() ?? '';
-    final colorIndex = car['colorIndex'] as int? ?? 0;
+    final name = widget.car['name']?.toString() ?? '';
+    final plate = widget.car['plate']?.toString() ?? '';
+    final colorIndex = widget.car['colorIndex'] as int? ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -1849,7 +1854,7 @@ class CarDetailsScreen extends StatelessWidget {
           const SizedBox(height: 18),
 
           FutureBuilder<Map<String, int>>(
-            future: AppDatabase.getCarSectionCounts(car['id'] as int),
+            future: AppDatabase.getCarSectionCounts(widget.car['id'] as int),
             builder: (context, snapshot) {
               final counts = snapshot.data ?? {};
 
@@ -1859,18 +1864,20 @@ class CarDetailsScreen extends StatelessWidget {
                     title: 'Zgłoś usterkę',
                     subtitle: 'Usterki: ${counts['USTERKI'] ?? 0}',
                     icon: Icons.report_problem,
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => CarNotesScreen(
-                            car: car,
+                            car: widget.car,
                             section: 'USTERKI',
                             title: 'Zgłoś usterkę',
                             allowImages: true,
                           ),
                         ),
                       );
+
+                      setState(() {});
                     },
                   ),
 
@@ -1882,7 +1889,7 @@ class CarDetailsScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CarTermsScreen(car: car),
+                          builder: (_) => CarTermsScreen(car: widget.car),
                         ),
                       );
                     },
@@ -1892,18 +1899,20 @@ class CarDetailsScreen extends StatelessWidget {
                     title: 'Konspiracja',
                     subtitle: 'Notatki: ${counts['KONSPIRACJA'] ?? 0}',
                     icon: Icons.lock,
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => CarNotesScreen(
-                            car: car,
+                            car: widget.car,
                             section: 'KONSPIRACJA',
                             title: 'Konspiracja',
                             allowImages: false,
                           ),
                         ),
                       );
+
+                      setState(() {});
                     },
                   ),
                 ],
@@ -2111,6 +2120,22 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
     await loadNotes();
   }
 
+  List<Map<String, dynamic>> get photoNotes {
+    return notes
+        .where((note) =>
+            note['imagePath'] != null &&
+            note['imagePath'].toString().isNotEmpty)
+        .toList();
+  }
+
+  List<Map<String, dynamic>> get textNotes {
+    return notes
+        .where((note) =>
+            note['imagePath'] == null ||
+            note['imagePath'].toString().isEmpty)
+        .toList();
+  }
+
   Future<void> deleteNote(Map<String, dynamic> note) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -2180,109 +2205,154 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
                       style: TextStyle(fontSize: 18),
                     ),
                   )
-                : ListView.builder(
+                : ListView(
                     padding: const EdgeInsets.all(12),
-                    itemCount: notes.length,
-                    itemBuilder: (context, index) {
-                      final note = notes[index];
-                      final text = note['text']?.toString() ?? '';
-                      final dateTime = note['dateTime']?.toString() ?? '';
-                      final userId = note['userId']?.toString() ?? '';
-
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                    children: [
+                      if (photoNotes.isNotEmpty) ...[
+                        Text(
+                          'Zdjęcia (${photoNotes.length})',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(12),
-                          leading: note['imagePath'] != null &&
-                                  note['imagePath'].toString().isNotEmpty
-                              ? GestureDetector(
-                                  onTap: () {
-                                    final photoNotes = notes
-                                        .where((n) =>
-                                            n['imagePath'] != null &&
-                                            n['imagePath'].toString().isNotEmpty)
-                                        .toList();
+                        const SizedBox(height: 10),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: photoNotes.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 0.72,
+                          ),
+                          itemBuilder: (context, index) {
+                            final note = photoNotes[index];
+                            final text = note['text']?.toString() ?? '';
 
-                                    final initialIndex = photoNotes.indexWhere(
-                                      (n) => n['id'] == note['id'],
-                                    );
-
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => FullScreenImage(
-                                          photos: photoNotes,
-                                          initialIndex: initialIndex < 0 ? 0 : initialIndex,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(note['imagePath']),
-                                      width: 58,
-                                      height: 58,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(Icons.broken_image);
-                                      },
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => FullScreenImage(
+                                      photos: photoNotes,
+                                      initialIndex: index,
                                     ),
                                   ),
-                                )
-                              : null,
-                          title: Text(
-                            text,
-                            maxLines: 8,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              '$dateTime\nID: $userId',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
+                                );
+                              },
+                              onLongPress: () => deleteNote(note),
+                              child: Card(
+                                elevation: 4,
+                                clipBehavior: Clip.antiAlias,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: Image.file(
+                                        File(note['imagePath']),
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Icon(Icons.broken_image);
+                                        },
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: Text(
+                                        text,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'edit') {
-                                editNote(note);
-                              }
-
-                              if (value == 'delete') {
-                                deleteNote(note);
-                              }
-                            },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Edytuj'),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Usuń'),
-                              ),
-                            ],
-                          ),
-                          onTap: note['imagePath'] != null &&
-                                  note['imagePath'].toString().isNotEmpty
-                              ? null
-                              : () => editNote(note),
-                          onLongPress: () => deleteNote(note),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ],
+
+                      if (textNotes.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Notatki (${textNotes.length})',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      ...textNotes.map((note) {
+                        final text = note['text']?.toString() ?? '';
+                        final dateTime = note['dateTime']?.toString() ?? '';
+                        final userId = note['userId']?.toString() ?? '';
+
+                        return Card(
+                          elevation: 2,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(12),
+                            title: Text(
+                              text,
+                              maxLines: 8,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                '$dateTime\nID: $userId',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  editNote(note);
+                                }
+
+                                if (value == 'delete') {
+                                  deleteNote(note);
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Edytuj'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Usuń'),
+                                ),
+                              ],
+                            ),
+                            onTap: () => editNote(note),
+                            onLongPress: () => deleteNote(note),
+                          ),
+                        );
+                      }),
+                    ],
                   ),
           ),
           Padding(

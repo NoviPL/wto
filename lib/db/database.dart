@@ -487,7 +487,13 @@ class AppDatabase {
 
     return db.query(
       'messages',
-      orderBy: 'id DESC',
+      orderBy: '''
+        CASE 
+          WHEN level = 'WAŻNE' THEN 0
+          ELSE 1
+        END,
+        id DESC
+      ''',
     );
   }
 
