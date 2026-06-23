@@ -266,6 +266,28 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.red.shade700,
+        foregroundColor: Colors.white,
+        onPressed: () async {
+          await AppDatabase.logout();
+
+          currentUserId = 'USER_001';
+          currentUserName = 'Użytkownik 1';
+
+          if (!context.mounted) return;
+
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(),
+            ),
+            (route) => false,
+          );
+        },
+        icon: const Icon(Icons.logout),
+        label: const Text('Wyloguj'),
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -1183,6 +1205,98 @@ class _UsersScreenState extends State<UsersScreen> {
     await loadUsers();
   }
 
+  Future<void> changeUserPin(Map<String, dynamic> user) async {
+    if (!isAdmin) return;
+
+    final controller = TextEditingController();
+    final id = user['id']?.toString() ?? '';
+    final name = user['name']?.toString() ?? '';
+
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Zmień PIN: $name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          maxLength: 4,
+          decoration: const InputDecoration(
+            labelText: 'Nowy PIN',
+            border: OutlineInputBorder(),
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+
+              if (value.length != 4) return;
+
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Zapisz'),
+          ),
+        ],
+      ),
+    );
+
+    if (pin == null || pin.length != 4) return;
+
+    await AppDatabase.updateUserPin(id, pin);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('PIN użytkownika $name został zmieniony.'),
+      ),
+    );
+  }
+
+  Future<void> resetUserPin(Map<String, dynamic> user) async {
+    if (!isAdmin) return;
+
+    final id = user['id']?.toString() ?? '';
+    final name = user['name']?.toString() ?? '';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset PIN'),
+        content: Text('Zresetować PIN użytkownika $name do 0000?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Resetuj'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.resetUserPin(id);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('PIN użytkownika $name zresetowany do 0000.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1211,6 +1325,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 final id = user['id']?.toString() ?? '';
                 final name = user['name']?.toString() ?? '';
                 final isSelected = id == currentUserId;
+                final userIsAdmin = user['isAdmin'] == 1;
 
                 return Card(
                   color: isSelected ? Colors.green.shade50 : Colors.white,
@@ -1227,8 +1342,8 @@ class _UsersScreenState extends State<UsersScreen> {
                     leading: CircleAvatar(
                       backgroundColor:
                           isSelected ? Colors.green : Colors.blueGrey,
-                      child: const Icon(
-                        Icons.person,
+                      child: Icon(
+                        userIsAdmin ? Icons.admin_panel_settings : Icons.person,
                         color: Colors.white,
                       ),
                     ),
@@ -1238,7 +1353,9 @@ class _UsersScreenState extends State<UsersScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    subtitle: Text(id),
+                    subtitle: Text(
+                      userIsAdmin ? '$id • ADMINISTRATOR' : id,
+                    ),
                     trailing: isAdmin
                         ? PopupMenuButton<String>(
                             onSelected: (value) {
@@ -1246,16 +1363,33 @@ class _UsersScreenState extends State<UsersScreen> {
                                 editUser(user);
                               }
 
+                              if (value == 'pin') {
+                                changeUserPin(user);
+                              }
+
+                              if (value == 'reset_pin') {
+                                resetUserPin(user);
+                              }
+
                               if (value == 'delete') {
                                 deleteUser(user);
                               }
                             },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
                                 value: 'edit',
-                                child: Text('Edytuj'),
+                                child: Text('Edytuj nazwę'),
                               ),
-                              PopupMenuItem(
+                              const PopupMenuItem(
+                                value: 'pin',
+                                child: Text('Zmień PIN'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'reset_pin',
+                                child: Text('Reset PIN do 0000'),
+                              ),
+                              const PopupMenuDivider(),
+                              const PopupMenuItem(
                                 value: 'delete',
                                 child: Text('Usuń'),
                               ),
@@ -1263,8 +1397,7 @@ class _UsersScreenState extends State<UsersScreen> {
                           )
                         : isSelected
                             ? const Icon(Icons.check_circle, color: Colors.green)
-                            : const Icon(Icons.arrow_forward_ios),
-                    onTap: () => selectUser(user),
+                            : const Icon(Icons.arrow_forward_ios),                   
                   ),
                 );
               },

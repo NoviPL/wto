@@ -769,4 +769,28 @@ class AppDatabase {
 
     return result.isNotEmpty;
   }
+  static Future<void> updateUserPin(String id, String pin) async {
+    final db = await database;
+
+    await db.update(
+      'users',
+      {'pin': pin},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> resetUserPin(String id) async {
+    await updateUserPin(id, '0000');
+  }
+
+  static Future<void> logout() async {
+    final db = await database;
+
+    await db.delete(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['currentUserId'],
+    );
+  }
 }
