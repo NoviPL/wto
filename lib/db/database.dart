@@ -1020,7 +1020,7 @@ class AppDatabase {
       'newValue': newValue,
       'userId': userId,
       'userName': userName,
-      'dateTime': _nowText(),
+      'dateTime': DateTime.now().toString(),
     });
   }
 
