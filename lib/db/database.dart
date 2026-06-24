@@ -1378,7 +1378,7 @@ class AppDatabase {
     return files;
   }
 
-  static Future<void> restoreBackupFromPath(
+    static Future<void> restoreBackupFromPath(
     String backupZipPath, {
     void Function(double progress)? onProgress,
   }) async {
@@ -1411,6 +1411,7 @@ class AppDatabase {
         await outFile.create(recursive: true);
         await outFile.writeAsBytes(file.content as List<int>);
       }
+
       final progress = 0.10 + ((i + 1) / archive.length) * 0.45;
       onProgress?.call(progress);
     }
@@ -1426,33 +1427,34 @@ class AppDatabase {
 
     final restoredFilesDir = Directory('${tempDir.path}/files');
 
-        if (await restoredFilesDir.exists()) {
-          final files = restoredFilesDir
-              .listSync(recursive: true)
-              .whereType<File>()
-              .toList();
+    if (await restoredFilesDir.exists()) {
+      final files = restoredFilesDir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .toList();
 
-          for (int i = 0; i < files.length; i++) {
-            final file = files[i];
-            final relativePath =
-                file.path.replaceFirst('${restoredFilesDir.path}/', '');
+      for (int i = 0; i < files.length; i++) {
+        final file = files[i];
+        final relativePath =
+            file.path.replaceFirst('${restoredFilesDir.path}/', '');
 
-            final targetFile = File('${appDir.path}/$relativePath');
+        final targetFile = File('${appDir.path}/$relativePath');
 
-            await targetFile.create(recursive: true);
-            await file.copy(targetFile.path);
+        await targetFile.create(recursive: true);
+        await file.copy(targetFile.path);
 
-            final progress = 0.60 + ((i + 1) / files.length) * 0.35;
-            onProgress?.call(progress);
-          }
-        }
+        final progress = 0.60 + ((i + 1) / files.length) * 0.35;
+        onProgress?.call(progress);
+      }
+    }
 
-        await tempDir.delete(recursive: true);
+    await tempDir.delete(recursive: true);
 
-        _db = null;
+    _db = null;
 
-        onProgress?.call(1.0);
-  
+    onProgress?.call(1.0);
+  }
+
   static Future<void> deleteBackup(String path) async {
     final file = File(path);
 
