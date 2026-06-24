@@ -1257,4 +1257,31 @@ class AppDatabase {
       orderBy: 'id DESC',
     );
   }
+  static Future<Map<String, int>> getAdminStats() async {
+    final db = await database;
+
+    Future<int> count(String table, {String? where}) async {
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM $table ${where == null ? '' : 'WHERE $where'}',
+      );
+
+      return Sqflite.firstIntValue(result) ?? 0;
+    }
+
+    return {
+      'users': await count('users'),
+      'years': await count('years'),
+      'tasks': await count('tasks'),
+      'entries': await count('entries'),
+      'photos': await count(
+        'entries',
+        where: 'imagePath IS NOT NULL AND imagePath != ""',
+      ),
+      'cars': await count('cars'),
+      'carNotes': await count('car_notes'),
+      'messages': await count('messages'),
+      'changeLogs': await count('change_logs'),
+    };
+  }
+
 }

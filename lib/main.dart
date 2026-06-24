@@ -4160,9 +4160,10 @@ class AdminPanelScreen extends StatelessWidget {
             title: 'Statystyki',
             icon: Icons.bar_chart,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Statystyki dodamy w kolejnym kroku.'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminStatsScreen(),
                 ),
               );
             },
@@ -4193,6 +4194,95 @@ class AdminPanelScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+class AdminStatsScreen extends StatefulWidget {
+  const AdminStatsScreen({super.key});
+
+  @override
+  State<AdminStatsScreen> createState() => _AdminStatsScreenState();
+}
+
+class _AdminStatsScreenState extends State<AdminStatsScreen> {
+  Map<String, int> stats = {};
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStats();
+  }
+
+  Future<void> loadStats() async {
+    final data = await AppDatabase.getAdminStats();
+
+    if (!mounted) return;
+
+    setState(() {
+      stats = data;
+      loading = false;
+    });
+  }
+
+  Widget statTile(String title, int value, IconData icon) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(14),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blueGrey.shade900,
+          child: Icon(icon, color: Colors.white),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+          ),
+        ),
+        trailing: Text(
+          value.toString(),
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Statystyki'),
+        centerTitle: true,
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: loadStats,
+              child: ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  statTile('Użytkownicy', stats['users'] ?? 0, Icons.people),
+                  statTile('Lata', stats['years'] ?? 0, Icons.calendar_month),
+                  statTile('Zadania', stats['tasks'] ?? 0, Icons.assignment),
+                  statTile('Wpisy w zadaniach', stats['entries'] ?? 0, Icons.article),
+                  statTile('Zdjęcia w zadaniach', stats['photos'] ?? 0, Icons.photo),
+                  statTile('Auta', stats['cars'] ?? 0, Icons.directions_car),
+                  statTile('Notatki floty', stats['carNotes'] ?? 0, Icons.build),
+                  statTile('Komunikaty', stats['messages'] ?? 0, Icons.campaign),
+                  statTile('Historia zmian', stats['changeLogs'] ?? 0, Icons.history),
+                ],
+              ),
+            ),
     );
   }
 }
