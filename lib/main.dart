@@ -388,13 +388,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   if (isAdmin) ...[
                     const SizedBox(height: 16),
                     _MainMenuButton(
-                      title: 'HISTORIA ZMIAN',
-                      icon: Icons.history,
+                      title: 'PANEL ADMINA',
+                      icon: Icons.admin_panel_settings,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ChangeLogsScreen(),
+                            builder: (_) => const AdminPanelScreen(),
                           ),
                         );
                       },
@@ -4106,4 +4106,118 @@ class _ChangeLogsScreenState extends State<ChangeLogsScreen> {
     );
   }
 }
+class AdminPanelScreen extends StatelessWidget {
+  const AdminPanelScreen({super.key});
+
+  Widget adminTile({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(14),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blueGrey.shade900,
+          child: Icon(icon, color: Colors.white),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+          ),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Panel administratora'),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          adminTile(
+            context: context,
+            title: 'Historia zmian',
+            icon: Icons.history,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ChangeLogsScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Użytkownicy',
+            icon: Icons.people,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const UsersScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Statystyki',
+            icon: Icons.bar_chart,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Statystyki dodamy w kolejnym kroku.'),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Backup bazy',
+            icon: Icons.backup,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Backup dodamy później.'),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Ustawienia aplikacji',
+            icon: Icons.settings,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Ustawienia dodamy później.'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
 
