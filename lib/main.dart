@@ -3931,6 +3931,8 @@ class _FullScreenImageState extends State<FullScreenImage> {
       ),
     );
   }
+}
+
 class ChangeLogsScreen extends StatefulWidget {
   const ChangeLogsScreen({super.key});
 
