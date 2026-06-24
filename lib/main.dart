@@ -4084,6 +4084,53 @@ class _ChangeLogsScreenState extends State<ChangeLogsScreen> {
     );
   }
 }
+
+Future<T> runWithProgressDialog<T>({
+  required BuildContext context,
+  required String title,
+  required String message,
+  required Future<T> Function(ValueNotifier<double> progress) action,
+}) async {
+  final progress = ValueNotifier<double>(0);
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) {
+      return AlertDialog(
+        title: Text(title),
+        content: ValueListenableBuilder<double>(
+          valueListenable: progress,
+          builder: (context, value, _) {
+            final percent = (value * 100).clamp(0, 100).round();
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message),
+                const SizedBox(height: 18),
+                LinearProgressIndicator(value: value),
+                const SizedBox(height: 12),
+                Text('$percent%'),
+              ],
+            );
+          },
+        ),
+      );
+    },
+  );
+
+  try {
+    return await action(progress);
+  } finally {
+    progress.dispose();
+
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+}
+
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({super.key});
 
@@ -4174,7 +4221,18 @@ class AdminPanelScreen extends StatelessWidget {
             icon: Icons.backup,
             onTap: () async {
               try {
-                final path = await AppDatabase.createBackupZip();
+                final path = await runWithProgressDialog<String>(
+                  context: context,
+                  title: 'Backup',
+                  message: 'Trwa tworzenie backupu...',
+                  action: (progress) {
+                    return AppDatabase.createBackupZip(
+                      onProgress: (value) {
+                        progress.value = value;
+                      },
+                    );
+                  },
+                );
 
                 if (!context.mounted) return;
 
@@ -4396,7 +4454,19 @@ class _BackupsScreenState extends State<BackupsScreen> {
                     if (confirm != true) return;
 
                     try {
-                      await AppDatabase.restoreBackupFromPath(file.path);
+                      await runWithProgressDialog<void>(
+                        context: context,
+                        title: 'Przywracanie backupu',
+                        message: 'Trwa przywracanie backupu...',
+                        action: (progress) {
+                          return AppDatabase.restoreBackupFromPath(
+                            file.path,
+                            onProgress: (value) {
+                              progress.value = value;
+                            },
+                          );
+                        },
+                      );
 
                       if (!context.mounted) return;
 

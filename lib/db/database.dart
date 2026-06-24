@@ -1286,7 +1286,9 @@ class AppDatabase {
       'changeLogs': await count('change_logs'),
     };
   }
-  static Future<String> createBackupZip() async {
+  static Future<String> createBackupZip({
+    void Function(double progress)? onProgress,
+  }) async {
     final db = await database;
 
     await db.close();
@@ -1319,8 +1321,10 @@ class AppDatabase {
     final encoder = ZipFileEncoder();
 
     encoder.create(backupPath);
+    onProgress?.call(0.05);
 
     encoder.addFile(File(sourceDbPath), 'wto.db');
+    onProgress?.call(0.15);
 
     final files = appDir
         .listSync(recursive: true)
@@ -1329,9 +1333,14 @@ class AppDatabase {
         .where((file) => file.path != sourceDbPath)
         .toList();
 
-    for (final file in files) {
+    for (int i = 0; i < files.length; i++) {
+      final file = files[i];
       final relativePath = file.path.replaceFirst('${appDir.path}/', '');
+
       encoder.addFile(file, 'files/$relativePath');
+
+      final progress = 0.15 + ((i + 1) / files.length) * 0.75;
+      onProgress?.call(progress);
     }
 
     encoder.close();
@@ -1345,7 +1354,7 @@ class AppDatabase {
       oldValue: '',
       newValue: backupPath,
     );
-
+    onProgress?.call(1.0);
     return backupPath;
   }
   static Future<List<FileSystemEntity>> getBackupFiles() async {
@@ -1369,7 +1378,10 @@ class AppDatabase {
     return files;
   }
 
-  static Future<void> restoreBackupFromPath(String backupZipPath) async {
+  static Future<void> restoreBackupFromPath(
+    String backupZipPath, {
+    void Function(double progress)? onProgress,
+  }) async {
     final db = await database;
     await db.close();
     _db = null;
@@ -1388,8 +1400,10 @@ class AppDatabase {
 
     final bytes = await File(backupZipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
+    onProgress?.call(0.10);
 
-    for (final file in archive) {
+    for (int i = 0; i < archive.length; i++) {
+      final file = archive[i];
       final filePath = '${tempDir.path}/${file.name}';
 
       if (file.isFile) {
@@ -1397,6 +1411,8 @@ class AppDatabase {
         await outFile.create(recursive: true);
         await outFile.writeAsBytes(file.content as List<int>);
       }
+      final progress = 0.10 + ((i + 1) / archive.length) * 0.45;
+      onProgress?.call(progress);
     }
 
     final restoredDb = File('${tempDir.path}/wto.db');
@@ -1405,31 +1421,37 @@ class AppDatabase {
       throw Exception('Backup nie zawiera pliku wto.db');
     }
 
+    onProgress?.call(0.60);
     await restoredDb.copy(targetDbPath);
 
     final restoredFilesDir = Directory('${tempDir.path}/files');
 
-    if (await restoredFilesDir.exists()) {
-      final files = restoredFilesDir
-          .listSync(recursive: true)
-          .whereType<File>()
-          .toList();
+        if (await restoredFilesDir.exists()) {
+          final files = restoredFilesDir
+              .listSync(recursive: true)
+              .whereType<File>()
+              .toList();
 
-      for (final file in files) {
-        final relativePath =
-            file.path.replaceFirst('${restoredFilesDir.path}/', '');
+          for (int i = 0; i < files.length; i++) {
+            final file = files[i];
+            final relativePath =
+                file.path.replaceFirst('${restoredFilesDir.path}/', '');
 
-        final targetFile = File('${appDir.path}/$relativePath');
+            final targetFile = File('${appDir.path}/$relativePath');
 
-        await targetFile.create(recursive: true);
-        await file.copy(targetFile.path);
-      }
-    }
+            await targetFile.create(recursive: true);
+            await file.copy(targetFile.path);
 
-    await tempDir.delete(recursive: true);
+            final progress = 0.60 + ((i + 1) / files.length) * 0.35;
+            onProgress?.call(progress);
+          }
+        }
 
-    _db = null;
-  }
+        await tempDir.delete(recursive: true);
+
+        _db = null;
+
+        onProgress?.call(1.0);
   
   static Future<void> deleteBackup(String path) async {
     final file = File(path);
