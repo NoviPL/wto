@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -1347,6 +1348,76 @@ class AppDatabase {
     );
 
     return backupPath;
+  }
+  static Future<void> restoreBackupZip() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+
+    if (result == null || result.files.single.path == null) return;
+
+    final backupZipPath = result.files.single.path!;
+
+    final db = await database;
+    await db.close();
+    _db = null;
+
+    final dbPath = await getDatabasesPath();
+    final targetDbPath = join(dbPath, 'wto.db');
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final tempDir = Directory('${appDir.path}/restore_temp');
+
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+
+    await tempDir.create(recursive: true);
+
+    final bytes = await File(backupZipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    for (final file in archive) {
+      final filePath = '${tempDir.path}/${file.name}';
+
+      if (file.isFile) {
+        final outFile = File(filePath);
+        await outFile.create(recursive: true);
+        await outFile.writeAsBytes(file.content as List<int>);
+      }
+    }
+
+    final restoredDb = File('${tempDir.path}/wto.db');
+
+    if (!await restoredDb.exists()) {
+      throw Exception('Backup nie zawiera pliku wto.db');
+    }
+
+    await restoredDb.copy(targetDbPath);
+
+    final restoredFilesDir = Directory('${tempDir.path}/files');
+
+    if (await restoredFilesDir.exists()) {
+      final files = restoredFilesDir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .toList();
+
+      for (final file in files) {
+        final relativePath =
+            file.path.replaceFirst('${restoredFilesDir.path}/', '');
+
+        final targetFile = File('${appDir.path}/$relativePath');
+
+        await targetFile.create(recursive: true);
+        await file.copy(targetFile.path);
+      }
+    }
+
+    await tempDir.delete(recursive: true);
+
+    _db = null;
   }
 
 }

@@ -4206,6 +4206,64 @@ class AdminPanelScreen extends StatelessWidget {
           ),
           adminTile(
             context: context,
+            title: 'Przywróć backup',
+            icon: Icons.restore,
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Przywróć backup'),
+                  content: const Text(
+                    'To podmieni aktualne dane aplikacji danymi z backupu.\n\nKontynuować?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Anuluj'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('Przywróć'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm != true) return;
+
+              try {
+                await AppDatabase.restoreBackupZip();
+
+                if (!context.mounted) return;
+
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Backup przywrócony'),
+                    content: const Text(
+                      'Dane zostały przywrócone.\n\nZamknij aplikację całkowicie i uruchom ją ponownie.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Błąd przywracania: $e'),
+                  ),
+                );
+              }
+            },
+          ),
+          adminTile(
+            context: context,
             title: 'Ustawienia aplikacji',
             icon: Icons.settings,
             onTap: () {
