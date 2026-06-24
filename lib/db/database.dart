@@ -48,6 +48,13 @@ class AppDatabase {
 
     final existing = await getCarTerms(carId);
 
+    final oldValue = existing == null
+        ? ''
+        : 'OC: ${existing['ocDate'] ?? '-'} | AC: ${existing['acDate'] ?? '-'} | BT: ${existing['btDate'] ?? '-'}';
+
+    final newValue =
+        'OC: ${ocDate ?? '-'} | AC: ${acDate ?? '-'} | BT: ${btDate ?? '-'}';
+
     if (existing == null) {
       await db.insert('car_terms', {
         'carId': carId,
@@ -67,6 +74,14 @@ class AppDatabase {
         whereArgs: [carId],
       );
     }
+
+    await addChangeLog(
+      entityType: 'OC/AC/BT',
+      entityId: carId.toString(),
+      action: existing == null ? 'Dodanie' : 'Edycja',
+      oldValue: oldValue,
+      newValue: newValue,
+    );
   }
 
   static Future<List<Map<String, dynamic>>> getCars() async {
@@ -86,12 +101,20 @@ class AppDatabase {
   ) async {
     final db = await database;
 
-    await db.insert('cars', {
+    final id = await db.insert('cars', {
       'name': name,
       'plate': plate,
       'createdAt': createdAt,
       'colorIndex': colorIndex,
     });
+
+    await addChangeLog(
+      entityType: 'Auto',
+      entityId: id.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$name | $plate',
+    );
   }
 
   static Future<void> updateCar(
@@ -100,6 +123,19 @@ class AppDatabase {
     String plate,
   ) async {
     final db = await database;
+
+    final old = await db.query(
+      'cars',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['name']} | ${old.first['plate']}';
+
+    final newValue = '$name | $plate';
 
     await db.update(
       'cars',
@@ -110,10 +146,28 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
-  }
 
+    await addChangeLog(
+      entityType: 'Auto',
+      entityId: id.toString(),
+      action: 'Edycja',
+      oldValue: oldValue,
+      newValue: newValue,
+    );
+  }
   static Future<void> deleteCar(int id) async {
     final db = await database;
+
+    final old = await db.query(
+      'cars',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['name']} | ${old.first['plate']}';
 
     await db.delete(
       'car_notes',
@@ -125,6 +179,14 @@ class AppDatabase {
       'cars',
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Auto',
+      entityId: id.toString(),
+      action: 'Usunięcie',
+      oldValue: oldValue,
+      newValue: '',
     );
   }
 
@@ -656,10 +718,18 @@ class AppDatabase {
   static Future<void> insertTask(int year, String number) async {
     final db = await database;
 
-    await db.insert('tasks', {
+    final id = await db.insert('tasks', {
       'year': year,
       'number': number,
     });
+
+    await addChangeLog(
+      entityType: 'Zadanie',
+      entityId: id.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$number | $year',
+    );
   }
 
   static Future<List<Map<String, dynamic>>> getTasks(int year) async {
@@ -679,6 +749,14 @@ class AppDatabase {
       'years',
       {'year': year},
       conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+
+    await addChangeLog(
+      entityType: 'Rok',
+      entityId: year.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: year.toString(),
     );
   }
 
@@ -714,7 +792,7 @@ class AppDatabase {
   ) async {
     final db = await database;
 
-    await db.insert('messages', {
+    final id = await db.insert('messages', {
       'title': title,
       'text': text,
       'level': level,
@@ -722,6 +800,14 @@ class AppDatabase {
       'userId': userId,
       'isRead': 0,
     });
+
+    await addChangeLog(
+      entityType: 'Komunikat',
+      entityId: id.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$title | $level',
+    );
   }
 
   static Future<void> markMessageAsRead(int id) async {
