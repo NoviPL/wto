@@ -796,6 +796,14 @@ class AppDatabase {
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$name | USER',
+    );
   }
 
   static Future<String> getCurrentUserId() async {
@@ -858,21 +866,57 @@ class AppDatabase {
   static Future<void> updateUserName(String id, String name) async {
     final db = await database;
 
+    final old = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty ? '' : old.first['name']?.toString() ?? '';
+
     await db.update(
       'users',
       {'name': name},
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Edycja nazwy',
+      oldValue: oldValue,
+      newValue: name,
+    );
   }
 
   static Future<void> deleteUser(String id) async {
     final db = await database;
 
+    final old = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['name']} | ${old.first['role']}';
+
     await db.delete(
       'users',
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Usunięcie',
+      oldValue: oldValue,
+      newValue: '',
     );
   }
 
@@ -902,10 +946,33 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Zmiana PIN',
+      oldValue: '****',
+      newValue: '****',
+    );
   }
 
   static Future<void> resetUserPin(String id) async {
-    await updateUserPin(id, '0000');
+    final db = await database;
+
+    await db.update(
+      'users',
+      {'pin': '0000'},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Reset PIN',
+      oldValue: '****',
+      newValue: '0000',
+    );
   }
 
   static Future<void> logout() async {
@@ -920,6 +987,17 @@ class AppDatabase {
   static Future<void> updateUserRole(String id, String role) async {
     final db = await database;
 
+    final old = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldRole = old.isEmpty
+        ? ''
+        : old.first['role']?.toString() ?? 'USER';
+
     await db.update(
       'users',
       {
@@ -928,6 +1006,14 @@ class AppDatabase {
       },
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Użytkownik',
+      entityId: id,
+      action: 'Zmiana roli',
+      oldValue: oldRole,
+      newValue: role,
     );
   }
 
