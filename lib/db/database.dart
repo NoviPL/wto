@@ -1,5 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:io';
+import 'package:archive/archive_io.dart';
+import 'package:path_provider/path_provider.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -1282,6 +1285,50 @@ class AppDatabase {
       'messages': await count('messages'),
       'changeLogs': await count('change_logs'),
     };
+  }
+  static Future<String> createBackupZip() async {
+    final db = await database;
+
+    await db.close();
+    _db = null;
+
+    final dbPath = await getDatabasesPath();
+    final sourcePath = join(dbPath, 'wto.db');
+
+    final now = DateTime.now();
+
+    final fileName =
+        'WTO_Backup_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}.zip';
+
+    final downloadsDir = await getExternalStorageDirectory();
+
+    if (downloadsDir == null) {
+      throw Exception('Nie udało się znaleźć katalogu zapisu.');
+    }
+
+    final backupDir = Directory('${downloadsDir.path}/WTO_Backup');
+
+    if (!await backupDir.exists()) {
+      await backupDir.create(recursive: true);
+    }
+
+    final backupPath = '${backupDir.path}/$fileName';
+
+    final encoder = ZipFileEncoder();
+
+    encoder.create(backupPath);
+    encoder.addFile(File(sourcePath), 'wto.db');
+    encoder.close();
+
+    await addChangeLog(
+      entityType: 'Backup',
+      entityId: fileName,
+      action: 'Utworzenie',
+      oldValue: '',
+      newValue: backupPath,
+    );
+
+    return backupPath;
   }
 
 }

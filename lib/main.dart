@@ -4170,14 +4170,38 @@ class AdminPanelScreen extends StatelessWidget {
           ),
           adminTile(
             context: context,
-            title: 'Backup bazy',
+            title: 'Utwórz backup',
             icon: Icons.backup,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Backup dodamy później.'),
-                ),
-              );
+            onTap: () async {
+              try {
+                final path = await AppDatabase.createBackupZip();
+
+                if (!context.mounted) return;
+
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Backup utworzony'),
+                    content: Text(
+                      'Kopia zapasowa została zapisana:\n\n$path',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Błąd backupu: $e'),
+                  ),
+                );
+              }
             },
           ),
           adminTile(
