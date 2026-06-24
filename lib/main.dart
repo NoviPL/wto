@@ -230,6 +230,7 @@ class MainMenuScreen extends StatefulWidget {
 
 class _MainMenuScreenState extends State<MainMenuScreen> {
   int unreadMessagesCount = 0;
+  bool isAdmin = false;
 
   @override
   void initState() {
@@ -248,8 +249,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
     setState(() {
       currentUserId = user['id']?.toString() ?? 'USER_001';
-      currentUserName =
-          user['name']?.toString() ?? 'Użytkownik 1';
+      currentUserName = user['name']?.toString() ?? 'Użytkownik 1';
+      isAdmin = user['role']?.toString() == 'ADMIN';
     });
   }
 
@@ -384,7 +385,21 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       }
                     },
                   ),
-
+                  if (isAdmin) ...[
+                    const SizedBox(height: 16),
+                    _MainMenuButton(
+                      title: 'HISTORIA ZMIAN',
+                      icon: Icons.history,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChangeLogsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _MainMenuButton(
                     title: 'INNE',
@@ -3916,4 +3931,177 @@ class _FullScreenImageState extends State<FullScreenImage> {
       ),
     );
   }
+class ChangeLogsScreen extends StatefulWidget {
+  const ChangeLogsScreen({super.key});
+
+  @override
+  State<ChangeLogsScreen> createState() => _ChangeLogsScreenState();
+}
+
+class _ChangeLogsScreenState extends State<ChangeLogsScreen> {
+  List<Map<String, dynamic>> logs = [];
+  bool isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadLogs();
+  }
+
+  Future<void> loadLogs() async {
+    final admin = await AppDatabase.isCurrentUserAdmin();
+
+    if (!admin) {
+      if (!mounted) return;
+
+      setState(() {
+        isAdmin = false;
+      });
+
+      return;
+    }
+
+    final data = await AppDatabase.getChangeLogs();
+
+    if (!mounted) return;
+
+    setState(() {
+      isAdmin = true;
+      logs = data;
+    });
+  }
+
+  IconData iconForAction(String action) {
+    if (action == 'Edycja') return Icons.edit;
+    if (action == 'Usunięcie') return Icons.delete;
+    return Icons.history;
+  }
+
+  Color colorForAction(String action) {
+    if (action == 'Edycja') return Colors.orange;
+    if (action == 'Usunięcie') return Colors.red;
+    return Colors.blueGrey;
+  }
+
+  void openLog(Map<String, dynamic> log) {
+    final action = log['action']?.toString() ?? '';
+    final entityType = log['entityType']?.toString() ?? '';
+    final userName = log['userName']?.toString() ?? '';
+    final dateTime = log['dateTime']?.toString() ?? '';
+    final oldValue = log['oldValue']?.toString() ?? '';
+    final newValue = log['newValue']?.toString() ?? '';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$action - $entityType'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Użytkownik: $userName'),
+              const SizedBox(height: 6),
+              Text('Data: $dateTime'),
+              const Divider(height: 24),
+              const Text(
+                'Przed zmianą:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(oldValue.isEmpty ? '-' : oldValue),
+              const SizedBox(height: 18),
+              const Text(
+                'Po zmianie:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(newValue.isEmpty ? '-' : newValue),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Zamknij'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isAdmin) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Historia zmian'),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: Text(
+            'Tylko ADMIN ma dostęp do historii zmian.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Historia zmian'),
+        centerTitle: true,
+      ),
+      body: logs.isEmpty
+          ? const Center(
+              child: Text(
+                'Brak historii zmian.',
+                style: TextStyle(fontSize: 18),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: logs.length,
+              itemBuilder: (context, index) {
+                final log = logs[index];
+
+                final action = log['action']?.toString() ?? '';
+                final entityType = log['entityType']?.toString() ?? '';
+                final userName = log['userName']?.toString() ?? '';
+                final dateTime = log['dateTime']?.toString() ?? '';
+                final color = colorForAction(action);
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(14),
+                    leading: CircleAvatar(
+                      backgroundColor: color,
+                      child: Icon(
+                        iconForAction(action),
+                        color: Colors.white,
+                      ),
+                    ),
+                    title: Text(
+                      '$action - $entityType',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text('$userName\n$dateTime'),
+                    isThreeLine: true,
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () => openLog(log),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
 }
