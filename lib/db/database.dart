@@ -168,6 +168,15 @@ class AppDatabase {
   ) async {
     final db = await database;
 
+    final old = await db.query(
+      'car_notes',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty ? '' : old.first['text']?.toString() ?? '';
+
     await db.update(
       'car_notes',
       {
@@ -176,15 +185,42 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    await addChangeLog(
+      entityType: 'Flota / notatka',
+      entityId: id.toString(),
+      action: 'Edycja',
+      oldValue: oldValue,
+      newValue: text,
+    );
   }
 
   static Future<void> deleteCarNote(int id) async {
     final db = await database;
 
+    final old = await db.query(
+      'car_notes',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['section']} | ${old.first['text']}';
+
     await db.delete(
       'car_notes',
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Flota / notatka',
+      entityId: id.toString(),
+      action: 'Usunięcie',
+      oldValue: oldValue,
+      newValue: '',
     );
   }
 
@@ -212,7 +248,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -299,6 +335,20 @@ class AppDatabase {
           CREATE TABLE app_settings (
             key TEXT PRIMARY KEY,
             value TEXT
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE change_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entityType TEXT NOT NULL,
+            entityId TEXT NOT NULL,
+            action TEXT NOT NULL,
+            oldValue TEXT,
+            newValue TEXT,
+            userId TEXT NOT NULL,
+            userName TEXT NOT NULL,
+            dateTime TEXT NOT NULL
           )
         ''');
 
@@ -510,6 +560,21 @@ class AppDatabase {
             whereArgs: ['USER_001'],
           );
         }
+        if (oldVersion < 15) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS change_logs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              entityType TEXT NOT NULL,
+              entityId TEXT NOT NULL,
+              action TEXT NOT NULL,
+              oldValue TEXT,
+              newValue TEXT,
+              userId TEXT NOT NULL,
+              userName TEXT NOT NULL,
+              dateTime TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -562,10 +627,29 @@ class AppDatabase {
   static Future<void> deleteEntry(int id) async {
     final db = await database;
 
+    final old = await db.query(
+      'entries',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['number']} | ${old.first['category']} | ${old.first['text']}';
+
     await db.delete(
       'entries',
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Zadanie / wpis',
+      entityId: id.toString(),
+      action: 'Usunięcie',
+      oldValue: oldValue,
+      newValue: '',
     );
   }
 
@@ -664,10 +748,29 @@ class AppDatabase {
   static Future<void> deleteMessage(int id) async {
     final db = await database;
 
+    final old = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['title']} | ${old.first['text']} | ${old.first['level']}';
+
     await db.delete(
       'messages',
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Komunikat',
+      entityId: id.toString(),
+      action: 'Usunięcie',
+      oldValue: oldValue,
+      newValue: '',
     );
   }
   static Future<List<Map<String, dynamic>>> getUsers() async {
@@ -864,6 +967,19 @@ class AppDatabase {
   ) async {
     final db = await database;
 
+    final old = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty
+        ? ''
+        : '${old.first['title']} | ${old.first['text']} | ${old.first['level']}';
+
+    final newValue = '$title | $text | $level';
+
     await db.update(
       'messages',
       {
@@ -873,6 +989,47 @@ class AppDatabase {
       },
       where: 'id = ?',
       whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Komunikat',
+      entityId: id.toString(),
+      action: 'Edycja',
+      oldValue: oldValue,
+      newValue: newValue,
+    );
+  }
+
+  static Future<void> addChangeLog({
+    required String entityType,
+    required String entityId,
+    required String action,
+    String? oldValue,
+    String? newValue,
+  }) async {
+    final db = await database;
+
+    final userId = await getCurrentUserId();
+    final userName = await getUserNameById(userId);
+
+    await db.insert('change_logs', {
+      'entityType': entityType,
+      'entityId': entityId,
+      'action': action,
+      'oldValue': oldValue,
+      'newValue': newValue,
+      'userId': userId,
+      'userName': userName,
+      'dateTime': _nowText(),
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getChangeLogs() async {
+    final db = await database;
+
+    return db.query(
+      'change_logs',
+      orderBy: 'id DESC',
     );
   }
 }
