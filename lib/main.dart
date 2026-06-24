@@ -368,23 +368,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                       await loadUnreadMessagesCount();
                     },
                   ),
-                  const SizedBox(height: 16),
-                  _MainMenuButton(
-                    title: 'UŻYTKOWNICY',
-                    icon: Icons.people,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const UsersScreen(),
-                        ),
-                      );
-
-                      if (mounted) {
-                        setState(() {});
-                      }
-                    },
-                  ),
+                  
                   if (isAdmin) ...[
                     const SizedBox(height: 16),
                     _MainMenuButton(
@@ -2125,15 +2109,9 @@ class _EntryScreenState extends State<EntryScreen> {
 
               if (newText.isEmpty) return;
 
-              final db = await AppDatabase.database;
-
-              await db.update(
-                'entries',
-                {
-                  'text': newText,
-                },
-                where: 'id = ?',
-                whereArgs: [entry['id']],
+              await AppDatabase.updateEntryText(
+                entry['id'] as int,
+                newText,
               );
 
               Navigator.pop(context);

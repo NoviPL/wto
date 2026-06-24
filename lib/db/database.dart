@@ -214,7 +214,7 @@ class AppDatabase {
   }) async {
     final db = await database;
 
-    await db.insert('car_notes', {
+    final id = await db.insert('car_notes', {
       'carId': carId,
       'section': section,
       'text': text,
@@ -222,6 +222,16 @@ class AppDatabase {
       'userId': userId,
       'imagePath': imagePath,
     });
+
+    await addChangeLog(
+      entityType: imagePath == null || imagePath.isEmpty
+          ? 'Flota / notatka'
+          : 'Flota / zdjęcie',
+      entityId: id.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$section | $text',
+    );
   }
 
   static Future<void> updateCarNote(
@@ -651,7 +661,7 @@ class AppDatabase {
   ) async {
     final db = await database;
 
-    await db.insert('entries', {
+    final id = await db.insert('entries', {
       'number': number,
       'category': category,
       'text': text,
@@ -659,6 +669,16 @@ class AppDatabase {
       'imagePath': imagePath,
       'userId': userId,
     });
+
+    await addChangeLog(
+      entityType: imagePath == null || imagePath.isEmpty
+          ? 'Wpis zadania'
+          : 'Zdjęcie zadania',
+      entityId: id.toString(),
+      action: 'Dodanie',
+      oldValue: '',
+      newValue: '$number | $category | $text',
+    );
   }
   static Future<String?> getLastImagePath(String number) async {
     final db = await database;
@@ -712,6 +732,39 @@ class AppDatabase {
       action: 'Usunięcie',
       oldValue: oldValue,
       newValue: '',
+    );
+  }
+
+  static Future<void> updateEntryText(
+    int id,
+    String text,
+  ) async {
+    final db = await database;
+
+    final old = await db.query(
+      'entries',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    final oldValue = old.isEmpty ? '' : old.first['text']?.toString() ?? '';
+
+    await db.update(
+      'entries',
+      {
+        'text': text,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    await addChangeLog(
+      entityType: 'Wpis zadania',
+      entityId: id.toString(),
+      action: 'Edycja',
+      oldValue: oldValue,
+      newValue: text,
     );
   }
 
