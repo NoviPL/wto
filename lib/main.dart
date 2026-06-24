@@ -4370,6 +4370,61 @@ class _BackupsScreenState extends State<BackupsScreen> {
                 return ListTile(
                   leading: const Icon(Icons.archive),
                   title: Text(name),
+                  subtitle: Text(file.path),
+
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Przywróć backup'),
+                        content: Text(
+                          'Przywrócić ten backup?\n\n$name\n\nAktualne dane zostaną podmienione.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Anuluj'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Przywróć'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm != true) return;
+
+                    try {
+                      await AppDatabase.restoreBackupFromPath(file.path);
+
+                      if (!context.mounted) return;
+
+                      showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Backup przywrócony'),
+                          content: const Text(
+                            'Dane zostały przywrócone.\n\nZamknij aplikację całkowicie i uruchom ją ponownie.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Błąd przywracania: $e'),
+                        ),
+                      );
+                    }
+                  },
 
                   onLongPress: () async {
                     final confirm = await showDialog<bool>(
