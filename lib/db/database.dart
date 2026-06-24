@@ -1349,25 +1349,25 @@ class AppDatabase {
     return backupPath;
   }
   static Future<List<FileSystemEntity>> getBackupFiles() async {
-  final externalDir = await getExternalStorageDirectory();
+    final externalDir = await getExternalStorageDirectory();
 
-  if (externalDir == null) return [];
+    if (externalDir == null) return [];
 
-  final backupDir = Directory('${externalDir.path}/WTO_Backup');
+    final backupDir = Directory('${externalDir.path}/WTO_Backup');
 
-  if (!await backupDir.exists()) return [];
+    if (!await backupDir.exists()) return [];
 
-  final files = backupDir
-      .listSync()
-      .where((file) => file.path.endsWith('.zip'))
-      .toList();
+    final files = backupDir
+        .listSync()
+        .where((file) => file.path.endsWith('.zip'))
+        .toList();
 
-  files.sort(
-    (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-  );
+    files.sort(
+      (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+    );
 
-  return files;
-}
+    return files;
+  }
 
   static Future<void> restoreBackupFromPath(String backupZipPath) async {
     final db = await database;
@@ -1430,28 +1430,7 @@ class AppDatabase {
 
     _db = null;
   }
-  static Future<List<FileSystemEntity>> getBackupFiles() async {
-    final externalDir = await getExternalStorageDirectory();
-
-    if (externalDir == null) return [];
-
-    final backupDir = Directory('${externalDir.path}/WTO_Backup');
-
-    if (!await backupDir.exists()) {
-      return [];
-    }
-
-    final files = backupDir
-        .listSync()
-        .where((e) => e.path.endsWith('.zip'))
-        .toList();
-
-    files.sort(
-      (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
-    );
-
-    return files;
-  }
+  
   static Future<void> deleteBackup(String path) async {
     final file = File(path);
 
