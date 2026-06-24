@@ -1293,20 +1293,22 @@ class AppDatabase {
     _db = null;
 
     final dbPath = await getDatabasesPath();
-    final sourcePath = join(dbPath, 'wto.db');
+    final sourceDbPath = join(dbPath, 'wto.db');
+
+    final appDir = await getApplicationDocumentsDirectory();
 
     final now = DateTime.now();
 
     final fileName =
         'WTO_Backup_${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}.zip';
 
-    final downloadsDir = await getExternalStorageDirectory();
+    final externalDir = await getExternalStorageDirectory();
 
-    if (downloadsDir == null) {
+    if (externalDir == null) {
       throw Exception('Nie udało się znaleźć katalogu zapisu.');
     }
 
-    final backupDir = Directory('${downloadsDir.path}/WTO_Backup');
+    final backupDir = Directory('${externalDir.path}/WTO_Backup');
 
     if (!await backupDir.exists()) {
       await backupDir.create(recursive: true);
@@ -1317,8 +1319,24 @@ class AppDatabase {
     final encoder = ZipFileEncoder();
 
     encoder.create(backupPath);
-    encoder.addFile(File(sourcePath), 'wto.db');
+
+    encoder.addFile(File(sourceDbPath), 'wto.db');
+
+    final files = appDir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((file) => !file.path.endsWith('.zip'))
+        .where((file) => file.path != sourceDbPath)
+        .toList();
+
+    for (final file in files) {
+      final relativePath = file.path.replaceFirst('${appDir.path}/', '');
+      encoder.addFile(file, 'files/$relativePath');
+    }
+
     encoder.close();
+
+    final reopenedDb = await database;
 
     await addChangeLog(
       entityType: 'Backup',
