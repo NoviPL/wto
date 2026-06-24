@@ -4204,6 +4204,19 @@ class AdminPanelScreen extends StatelessWidget {
               }
             },
           ),
+          adminTile(
+            context: context,
+            title: 'Backupy',
+            icon: Icons.folder_zip,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BackupsScreen(),
+                ),
+              );
+            },
+          ),
           
           adminTile(
             context: context,
@@ -4307,6 +4320,86 @@ class _AdminStatsScreenState extends State<AdminStatsScreen> {
                   statTile('Historia zmian', stats['changeLogs'] ?? 0, Icons.history),
                 ],
               ),
+            ),
+    );
+  }
+}
+class BackupsScreen extends StatefulWidget {
+  const BackupsScreen({super.key});
+
+  @override
+  State<BackupsScreen> createState() => _BackupsScreenState();
+}
+
+class _BackupsScreenState extends State<BackupsScreen> {
+  List<FileSystemEntity> backups = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadBackups();
+  }
+
+  Future<void> loadBackups() async {
+    final list = await AppDatabase.getBackupFiles();
+
+    if (!mounted) return;
+
+    setState(() {
+      backups = list;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Backupy'),
+      ),
+      body: backups.isEmpty
+          ? const Center(
+              child: Text('Brak backupów'),
+            )
+          : ListView.builder(
+              itemCount: backups.length,
+              itemBuilder: (context, index) {
+                final file = backups[index];
+
+                final name = file.path.split('/').last;
+
+                return ListTile(
+                  leading: const Icon(Icons.archive),
+                  title: Text(name),
+
+                  onLongPress: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Usuń backup'),
+                        content: Text(name),
+                        actions: [
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(context, false),
+                            child: const Text('Anuluj'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () =>
+                                Navigator.pop(context, true),
+                            child: const Text('Usuń'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm != true) return;
+
+                    await AppDatabase.deleteBackup(file.path);
+
+                    await loadBackups();
+                  },
+                );
+              },
             ),
     );
   }

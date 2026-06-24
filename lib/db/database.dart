@@ -1430,4 +1430,33 @@ class AppDatabase {
 
     _db = null;
   }
+  static Future<List<FileSystemEntity>> getBackupFiles() async {
+    final externalDir = await getExternalStorageDirectory();
+
+    if (externalDir == null) return [];
+
+    final backupDir = Directory('${externalDir.path}/WTO_Backup');
+
+    if (!await backupDir.exists()) {
+      return [];
+    }
+
+    final files = backupDir
+        .listSync()
+        .where((e) => e.path.endsWith('.zip'))
+        .toList();
+
+    files.sort(
+      (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+    );
+
+    return files;
+  }
+  static Future<void> deleteBackup(String path) async {
+    final file = File(path);
+
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
 }
