@@ -3,7 +3,6 @@ import 'package:path/path.dart';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -1349,16 +1348,28 @@ class AppDatabase {
 
     return backupPath;
   }
-  static Future<void> restoreBackupZip() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-    );
+  static Future<List<FileSystemEntity>> getBackupFiles() async {
+  final externalDir = await getExternalStorageDirectory();
 
-    if (result == null || result.files.single.path == null) return;
+  if (externalDir == null) return [];
 
-    final backupZipPath = result.files.single.path!;
+  final backupDir = Directory('${externalDir.path}/WTO_Backup');
 
+  if (!await backupDir.exists()) return [];
+
+  final files = backupDir
+      .listSync()
+      .where((file) => file.path.endsWith('.zip'))
+      .toList();
+
+  files.sort(
+    (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+  );
+
+  return files;
+}
+
+  static Future<void> restoreBackupFromPath(String backupZipPath) async {
     final db = await database;
     await db.close();
     _db = null;
@@ -1419,5 +1430,4 @@ class AppDatabase {
 
     _db = null;
   }
-
 }
