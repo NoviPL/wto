@@ -1214,11 +1214,6 @@ class AppDatabase {
     return user?['role']?.toString() ?? 'USER';
   }
 
-  static Future<bool> isCurrentUserExpert() async {
-    final role = await getCurrentUserRole();
-
-    return role == 'EKSPERT' || role == 'ADMIN';
-  }
 
   static Future<bool> isCurrentUserExpert() async {
     final user = await getCurrentUser();
