@@ -1503,6 +1503,8 @@ class AppDatabase {
     try {
       final messages = await WtoApi.getMessages();
 
+      await removeDeletedMessagesFromServer(messages);
+
       for (final msg in messages) {
         await insertMessageFromServer(
           msg['id'],
@@ -1514,5 +1516,28 @@ class AppDatabase {
         );
       }
     } catch (_) {}
+  }
+  static Future<void> removeDeletedMessagesFromServer(
+    List<Map<String, dynamic>> serverMessages,
+  ) async {
+    final db = await database;
+
+    final localMessages = await db.query('messages');
+
+    final serverIds = serverMessages
+        .map((e) => e['id'] as int)
+        .toSet();
+
+    for (final msg in localMessages) {
+      final localId = msg['id'] as int;
+
+      if (!serverIds.contains(localId)) {
+        await db.delete(
+          'messages',
+          where: 'id = ?',
+          whereArgs: [localId],
+        );
+      }
+    }
   }
 }
