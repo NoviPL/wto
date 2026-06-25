@@ -885,6 +885,18 @@ class AppDatabase {
     );
 
     if (existing.isNotEmpty) {
+      await db.update(
+        'messages',
+        {
+          'title': title,
+          'text': text,
+          'level': level,
+          'dateTime': dateTime,
+          'userId': userId,
+        },
+        where: 'id = ?',
+        whereArgs: [serverId],
+      );
       return;
     }
 
