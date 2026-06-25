@@ -9,6 +9,8 @@ import 'api/wto_api.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await AppDatabase.syncUsersFromServer();
+  
   final user = await AppDatabase.getCurrentUser();
 
   if (user != null) {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import '../api/wto_api.dart';
+import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -988,6 +989,13 @@ class AppDatabase {
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
 
+    await WtoApi.sendUser(
+      id: id,
+      name: name,
+      role: 'USER',
+      pin: '0000',
+    );
+
     await addChangeLog(
       entityType: 'Użytkownik',
       entityId: id,
@@ -996,6 +1004,27 @@ class AppDatabase {
       newValue: '$name | USER',
     );
   }
+
+    static Future<void> upsertUserFromServer({
+      required String id,
+      required String name,
+      required String role,
+      required String pin,
+    }) async {
+      final db = await database;
+
+      await db.insert(
+        'users',
+        {
+          'id': id,
+          'name': name,
+          'role': role,
+          'pin': pin,
+          'isAdmin': role == 'ADMIN' ? 1 : 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
 
   static Future<String> getCurrentUserId() async {
     final db = await database;
@@ -1566,6 +1595,22 @@ class AppDatabase {
           whereArgs: [localId],
         );
       }
+    }
+  }
+  static Future<void> syncUsersFromServer() async {
+    try {
+      final users = await WtoApi.getUsers();
+
+      for (final user in users) {
+        await upsertUserFromServer(
+          id: user['id'].toString(),
+          name: user['name'].toString(),
+          role: user['role'].toString(),
+          pin: user['pin'].toString(),
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji users: $e');
     }
   }
 }
