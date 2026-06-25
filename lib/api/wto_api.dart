@@ -32,6 +32,36 @@ class WtoApi {
     }
   }
 
+static Future<bool> updateMessage({
+  required int id,
+  required String title,
+  required String text,
+  required String level,
+  required String dateTime,
+  required String userId,
+}) async {
+  try {
+    final response = await http.put(
+      Uri.parse('$serverUrl/messages/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'title': title,
+        'text': text,
+        'level': level,
+        'dateTime': dateTime,
+        'userId': userId,
+      }),
+    ).timeout(const Duration(seconds: 5));
+
+    return response.statusCode >= 200 &&
+        response.statusCode < 300;
+  } catch (_) {
+    return false;
+  }
+}
+
   static Future<List<Map<String, dynamic>>> getMessages() async {
     try {
       final response = await http

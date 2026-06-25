@@ -948,11 +948,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     if (result == null) return;
 
+    final id = message['id'] as int;
+    final title = result['title'] ?? '';
+    final text = result['text'] ?? '';
+    final level = result['level'] ?? 'OGŁOSZENIE';
+
     await AppDatabase.updateMessage(
-      message['id'] as int,
-      result['title'] ?? '',
-      result['text'] ?? '',
-      result['level'] ?? 'OGŁOSZENIE',
+      id,
+      title,
+      text,
+      level,
+    );
+
+    await WtoApi.updateMessage(
+      id: id,
+      title: title,
+      text: text,
+      level: level,
+      dateTime: message['dateTime']?.toString() ?? '',
+      userId: message['userId']?.toString() ?? currentUserId,
     );
 
     await loadMessages();
