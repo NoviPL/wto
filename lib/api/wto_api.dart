@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class WtoApi {
-  static String serverUrl = 'http://10.119.82.46:8000';
+  static String serverUrl = 'http://192.168.10.110:8000';
 
   static Future<bool> sendMessage({
     required String title,
