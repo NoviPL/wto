@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
+import 'api/wto_api.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -749,12 +750,36 @@ class _MessagesScreenState extends State<MessagesScreen> {
         '${now.day}.${now.month}.${now.year} '
         '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
+    final title = result['title'] ?? '';
+    final text = result['text'] ?? '';
+    final level = result['level'] ?? 'OGŁOSZENIE';
+
     await AppDatabase.insertMessage(
-      result['title'] ?? '',
-      result['text'] ?? '',
-      result['level'] ?? 'OGŁOSZENIE',
+      title,
+      text,
+      level,
       time,
       currentUserId,
+    );
+
+    final sent = await WtoApi.sendMessage(
+      title: title,
+      text: text,
+      level: level,
+      dateTime: time,
+      userId: currentUserId,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          sent
+              ? 'Komunikat zapisany lokalnie i wysłany na serwer.'
+              : 'Komunikat zapisany lokalnie. Brak połączenia z serwerem.',
+        ),
+      ),
     );
 
     await loadMessages();
