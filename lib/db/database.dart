@@ -1224,7 +1224,22 @@ class AppDatabase {
     final isAdmin = user['isAdmin'] == 1;
 
     return isAdmin || role == 'ADMIN' || role == 'EKSPERT';
-}
+  }
+
+  static Future<bool> canCurrentUserEditItem(String itemUserId) async {
+    final user = await getCurrentUser();
+
+    if (user == null) return false;
+
+    final role = user['role']?.toString() ?? 'USER';
+    final isAdmin = user['isAdmin'] == 1;
+
+    if (isAdmin || role == 'ADMIN') return true;
+
+    final currentId = await getCurrentUserId();
+
+    return currentId == itemUserId;
+  }
 
   static Future<bool> canCurrentUserAddImportantMessages() async {
     final user = await getCurrentUser();
