@@ -866,6 +866,42 @@ class AppDatabase {
     );
   }
 
+  static Future<void> insertMessageFromServer(
+    int serverId,
+    String title,
+    String text,
+    String level,
+    String dateTime,
+    String userId,
+  ) async {
+    final db = await database;
+
+    final existing = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [serverId],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      return;
+    }
+
+    await db.insert(
+      'messages',
+      {
+        'id': serverId,
+        'title': title,
+        'text': text,
+        'level': level,
+        'dateTime': dateTime,
+        'userId': userId,
+        'isRead': 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
   static Future<void> markMessageAsRead(int id) async {
     final db = await database;
 
