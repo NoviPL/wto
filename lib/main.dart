@@ -616,11 +616,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     await AppDatabase.syncMessagesFromServer();
 
     final data = await AppDatabase.getMessages();
+    final important = await AppDatabase.canCurrentUserAddImportantMessages();
 
     if (!mounted) return;
 
     setState(() {
       messages = data;
+      canAddImportantMessages = important;
     });
   }
 
