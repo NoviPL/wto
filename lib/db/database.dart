@@ -1220,20 +1220,26 @@ class AppDatabase {
     return role == 'EKSPERT' || role == 'ADMIN';
   }
 
-  static Future<bool> canCurrentUserEditItem(String itemUserId) async {
-    final role = await getCurrentUserRole();
+  static Future<bool> isCurrentUserExpert() async {
+    final user = await getCurrentUser();
 
-    if (role == 'ADMIN') return true;
+    if (user == null) return false;
 
-    final currentId = await getCurrentUserId();
+    final role = user['role']?.toString() ?? 'USER';
+    final isAdmin = user['isAdmin'] == 1;
 
-    return currentId == itemUserId;
-  }
+    return isAdmin || role == 'ADMIN' || role == 'EKSPERT';
+}
 
   static Future<bool> canCurrentUserAddImportantMessages() async {
-    final role = await getCurrentUserRole();
+    final user = await getCurrentUser();
 
-    return role == 'ADMIN' || role == 'EKSPERT';
+    if (user == null) return false;
+
+    final role = user['role']?.toString() ?? 'USER';
+    final isAdmin = user['isAdmin'] == 1;
+
+    return isAdmin || role == 'ADMIN' || role == 'EKSPERT';
   }
 
   static Future<void> updateMessage(
