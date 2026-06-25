@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
+import '../api/wto_api.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -1497,5 +1498,21 @@ class AppDatabase {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+  static Future<void> syncMessagesFromServer() async {
+    try {
+      final messages = await WtoApi.getMessages();
+
+      for (final msg in messages) {
+        await insertMessageFromServer(
+          msg['id'],
+          msg['title'] ?? '',
+          msg['text'] ?? '',
+          msg['level'] ?? 'OGŁOSZENIE',
+          msg['dateTime'] ?? '',
+          msg['userId'] ?? '',
+        );
+      }
+    } catch (_) {}
   }
 }
