@@ -132,4 +132,15 @@ class WtoApi {
       return false;
     }
   }
+  static Future<bool> deleteUser(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$serverUrl/users/$id'),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }

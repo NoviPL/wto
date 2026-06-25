@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import '../api/wto_api.dart';
-import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -1131,6 +1130,8 @@ class AppDatabase {
       whereArgs: [id],
     );
 
+    await WtoApi.deleteUser(id);
+
     await addChangeLog(
       entityType: 'Użytkownik',
       entityId: id,
@@ -1602,8 +1603,23 @@ class AppDatabase {
       final users = await WtoApi.getUsers();
 
       for (final user in users) {
+        final id = user['id'].toString();
+        final deleted = user['deleted']?.toString() == '1';
+
+        if (deleted) {
+          final db = await database;
+
+          await db.delete(
+            'users',
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+
+          continue;
+        }
+
         await upsertUserFromServer(
-          id: user['id'].toString(),
+          id: id,
           name: user['name'].toString(),
           role: user['role'].toString(),
           pin: user['pin'].toString(),
