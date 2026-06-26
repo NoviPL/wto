@@ -6,10 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
+import 'sync/sync_manager.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await AppDatabase.syncUsersFromServer();
+  await SyncManager.syncAll();
   
   final user = await AppDatabase.getCurrentUser();
 

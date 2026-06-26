@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import '../api/wto_api.dart';
+import '../sync/sync_manager.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -988,7 +989,7 @@ class AppDatabase {
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
 
-    await WtoApi.sendUser(
+    await SyncManager.sendUser(
       id: id,
       name: name,
       role: 'USER',
@@ -1101,6 +1102,22 @@ class AppDatabase {
       whereArgs: [id],
     );
 
+    final user = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (user.isNotEmpty) {
+      await SyncManager.sendUser(
+        id: id,
+        name: name,
+        role: user.first['role']?.toString() ?? 'USER',
+        pin: user.first['pin']?.toString() ?? '0000',
+      );
+    }
+
     await addChangeLog(
       entityType: 'Użytkownik',
       entityId: id,
@@ -1130,7 +1147,7 @@ class AppDatabase {
       whereArgs: [id],
     );
 
-    await WtoApi.deleteUser(id);
+    await SyncManager.deleteUser(id);
 
     await addChangeLog(
       entityType: 'Użytkownik',
@@ -1168,6 +1185,22 @@ class AppDatabase {
       whereArgs: [id],
     );
 
+    final user = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (user.isNotEmpty) {
+      await SyncManager.sendUser(
+        id: id,
+        name: user.first['name']?.toString() ?? '',
+        role: user.first['role']?.toString() ?? 'USER',
+        pin: pin,
+      );
+    }
+
     await addChangeLog(
       entityType: 'Użytkownik',
       entityId: id,
@@ -1186,6 +1219,22 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    final user = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (user.isNotEmpty) {
+      await SyncManager.sendUser(
+        id: id,
+        name: user.first['name']?.toString() ?? '',
+        role: user.first['role']?.toString() ?? 'USER',
+        pin: '0000',
+      );
+    }
 
     await addChangeLog(
       entityType: 'Użytkownik',
@@ -1228,6 +1277,22 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    final user = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (user.isNotEmpty) {
+      await SyncManager.sendUser(
+        id: id,
+        name: user.first['name']?.toString() ?? '',
+        role: role,
+        pin: user.first['pin']?.toString() ?? '0000',
+      );
+    }
 
     await addChangeLog(
       entityType: 'Użytkownik',
