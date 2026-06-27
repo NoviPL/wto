@@ -740,9 +740,27 @@ class AppDatabase {
       limit: 1,
     );
 
-    final oldValue = old.isEmpty
-        ? ''
-        : '${old.first['number']} | ${old.first['category']} | ${old.first['text']}';
+    if (old.isEmpty) return;
+
+    final entry = old.first;
+
+    final entryUuid = entry['entry_uuid']?.toString();
+
+    if (entryUuid != null && entryUuid.isNotEmpty) {
+      await SyncManager.sendEntry(
+        entryUuid: entryUuid,
+        number: entry['number']?.toString() ?? '',
+        category: entry['category']?.toString() ?? 'WPIS',
+        text: entry['text']?.toString() ?? '',
+        dateTime: entry['dateTime']?.toString() ?? '',
+        imagePath: entry['imagePath']?.toString(),
+        userId: entry['userId']?.toString() ?? 'USER_001',
+        deleted: true,
+      );
+    }
+
+    final oldValue =
+        '${entry['number']} | ${entry['category']} | ${entry['text']}';
 
     await db.delete(
       'entries',
