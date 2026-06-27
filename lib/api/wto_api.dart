@@ -245,4 +245,59 @@ class WtoApi {
       return false;
     }
   }
+  static Future<List<Map<String, dynamic>>> getEntries() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/entries'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendEntry({
+    required String entryUuid,
+    required String number,
+    required String category,
+    required String text,
+    required String dateTime,
+    required String userId,
+    String? imagePath,
+    bool deleted = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/entries'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'entry_uuid': entryUuid,
+          'number': number,
+          'category': category,
+          'text': text,
+          'dateTime': dateTime,
+          'imagePath': imagePath,
+          'userId': userId,
+          'deleted': deleted,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }

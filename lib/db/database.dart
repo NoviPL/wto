@@ -5,6 +5,7 @@ import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import '../api/wto_api.dart';
 import '../sync/sync_manager.dart';
+import 'package:uuid/uuid.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -325,11 +326,12 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_uuid TEXT UNIQUE,
             number TEXT,
             category TEXT,
             text TEXT,
@@ -652,6 +654,13 @@ class AppDatabase {
             )
           ''');
         }
+        if (oldVersion < 16) {
+          try {
+            await db.execute(
+              'ALTER TABLE entries ADD COLUMN entry_uuid TEXT',
+            );
+          } catch (_) {}
+        }
       },
     );
   }
@@ -665,8 +674,9 @@ class AppDatabase {
     String userId,
   ) async {
     final db = await database;
-
+    final entryUuid = const Uuid().v4();
     final id = await db.insert('entries', {
+      'entry_uuid': entryUuid,
       'number': number,
       'category': category,
       'text': text,
@@ -683,6 +693,15 @@ class AppDatabase {
       action: 'Dodanie',
       oldValue: '',
       newValue: '$number | $category | $text',
+    );
+    await SyncManager.sendEntry(
+      entryUuid: entryUuid,
+      number: number,
+      category: category,
+      text: text,
+      dateTime: dateTime,
+      imagePath: imagePath,
+      userId: userId,
     );
   }
   static Future<String?> getLastImagePath(String number) async {
@@ -771,6 +790,23 @@ class AppDatabase {
       oldValue: oldValue,
       newValue: text,
     );
+    if (old.isNotEmpty) {
+      final entry = old.first;
+
+      final entryUuid = entry['entry_uuid']?.toString();
+
+      if (entryUuid != null && entryUuid.isNotEmpty) {
+        await SyncManager.sendEntry(
+          entryUuid: entryUuid,
+          number: entry['number']?.toString() ?? '',
+          category: entry['category']?.toString() ?? 'WPIS',
+          text: text,
+          dateTime: entry['dateTime']?.toString() ?? '',
+          imagePath: entry['imagePath']?.toString(),
+          userId: entry['userId']?.toString() ?? 'USER_001',
+        );
+      }
+    }
   }
 
   static Future<void> insertTask(int year, String number) async {
@@ -838,7 +874,7 @@ class AppDatabase {
       newValue: '',
     );
   }
-  
+
   static Future<void> insertYear(int year) async {
     final db = await database;
 
@@ -1811,6 +1847,99 @@ class AppDatabase {
       }
     } catch (e) {
       print('Błąd synchronizacji tasks: $e');
+    }
+  }
+  static Future<void> upsertEntryFromServer({
+    required String entryUuid,
+    required String number,
+    required String category,
+    required String text,
+    required String dateTime,
+    String? imagePath,
+    required String userId,
+  }) async {
+    final db = await database;
+
+    final existing = await db.query(
+      'entries',
+      where: 'entry_uuid = ?',
+      whereArgs: [entryUuid],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      await db.update(
+        'entries',
+        {
+          'number': number,
+          'category': category,
+          'text': text,
+          'dateTime': dateTime,
+          'imagePath': imagePath,
+          'userId': userId,
+        },
+        where: 'entry_uuid = ?',
+        whereArgs: [entryUuid],
+      );
+      return;
+    }
+
+    await db.insert(
+      'entries',
+      {
+        'entry_uuid': entryUuid,
+        'number': number,
+        'category': category,
+        'text': text,
+        'dateTime': dateTime,
+        'imagePath': imagePath,
+        'userId': userId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<void> syncEntriesFromServer() async {
+    try {
+      final entries = await WtoApi.getEntries();
+
+      final db = await database;
+
+      for (final item in entries) {
+        final entryUuid = item['entry_uuid']?.toString();
+        final number = item['number']?.toString();
+        final category = item['category']?.toString() ?? 'WPIS';
+        final text = item['text']?.toString() ?? '';
+        final dateTime = item['dateTime']?.toString() ?? '';
+        final imagePath = item['imagePath']?.toString();
+        final userId = item['userId']?.toString() ?? 'USER_001';
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (entryUuid == null || entryUuid.isEmpty) continue;
+        if (number == null || number.isEmpty) continue;
+
+        if (deleted) {
+          await db.delete(
+            'entries',
+            where: 'entry_uuid = ?',
+            whereArgs: [entryUuid],
+          );
+          continue;
+        }
+
+        await upsertEntryFromServer(
+          entryUuid: entryUuid,
+          number: number,
+          category: category,
+          text: text,
+          dateTime: dateTime,
+          imagePath: imagePath,
+          userId: userId,
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji entries: $e');
     }
   }
 }

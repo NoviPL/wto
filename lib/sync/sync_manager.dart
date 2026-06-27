@@ -1,12 +1,14 @@
 import 'sync_users.dart';
 import 'sync_years.dart';
 import 'sync_tasks.dart';
+import 'sync_entries.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
     await syncUsersFromServer();
     await syncYearsFromServer();
     await syncTasksFromServer();
+    await syncEntriesFromServer();
   }
 
   static Future<void> syncUsersFromServer() async {
@@ -62,6 +64,31 @@ class SyncManager {
     return SyncTasks.deleteTask(
       year: year,
       number: number,
+    );
+  }
+  static Future<void> syncEntriesFromServer() async {
+    await SyncEntries.syncFromServer();
+  }
+
+  static Future<bool> sendEntry({
+    required String entryUuid,
+    required String number,
+    required String category,
+    required String text,
+    required String dateTime,
+    required String userId,
+    String? imagePath,
+    bool deleted = false,
+  }) async {
+    return SyncEntries.sendEntry(
+      entryUuid: entryUuid,
+      number: number,
+      category: category,
+      text: text,
+      dateTime: dateTime,
+      imagePath: imagePath,
+      userId: userId,
+      deleted: deleted,
     );
   }
 }
