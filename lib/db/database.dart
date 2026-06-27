@@ -788,6 +788,10 @@ class AppDatabase {
       oldValue: '',
       newValue: '$number | $year',
     );
+    await SyncManager.sendTask(
+      year: year,
+      number: number,
+    );
   }
 
   static Future<List<Map<String, dynamic>>> getTasks(int year) async {
@@ -816,6 +820,7 @@ class AppDatabase {
       oldValue: '',
       newValue: year.toString(),
     );
+    await SyncManager.sendYear(year: year);
   }
 
   static Future<List<Map<String, dynamic>>> getYears() async {
@@ -1692,6 +1697,85 @@ class AppDatabase {
       }
     } catch (e) {
       print('Błąd synchronizacji users: $e');
+    }
+  }
+  static Future<void> syncYearsFromServer() async {
+    try {
+      final years = await WtoApi.getYears();
+
+      final db = await database;
+
+      for (final item in years) {
+        final year = item['year'];
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (year == null) continue;
+
+        if (deleted) {
+          await db.delete(
+            'years',
+            where: 'year = ?',
+            whereArgs: [year],
+          );
+          continue;
+        }
+
+        await db.insert(
+          'years',
+          {
+            'year': year,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji years: $e');
+    }
+  }
+
+  static Future<void> syncTasksFromServer() async {
+    try {
+      final tasks = await WtoApi.getTasks();
+
+      final db = await database;
+
+      for (final item in tasks) {
+        final year = item['year'];
+        final number = item['number']?.toString();
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (year == null || number == null || number.isEmpty) continue;
+
+        if (deleted) {
+          await db.delete(
+            'tasks',
+            where: 'year = ? AND number = ?',
+            whereArgs: [year, number],
+          );
+          continue;
+        }
+
+        final existing = await db.query(
+          'tasks',
+          where: 'year = ? AND number = ?',
+          whereArgs: [year, number],
+          limit: 1,
+        );
+
+        if (existing.isEmpty) {
+          await db.insert(
+            'tasks',
+            {
+              'year': year,
+              'number': number,
+            },
+          );
+        }
+      }
+    } catch (e) {
+      print('Błąd synchronizacji tasks: $e');
     }
   }
 }
