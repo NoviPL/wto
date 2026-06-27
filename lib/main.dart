@@ -1810,6 +1810,35 @@ class _NumbersScreenState extends State<NumbersScreen> {
     await loadTasks();
   }
 
+  Future<void> _deleteTask(Map<String, dynamic> task) async {
+    final id = task['id'] as int;
+    final number = task['number']?.toString() ?? '';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń zadanie'),
+        content: Text('Czy na pewno usunąć zadanie $number?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.deleteTask(id);
+
+    await loadTasks();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1832,6 +1861,7 @@ class _NumbersScreenState extends State<NumbersScreen> {
               itemCount: tasks.length,
               itemBuilder: (context, index) {
                 final number = tasks[index]['number'] as String;
+                final task = tasks[index];
 
                 return FutureBuilder<NumberStatus>(
                   future: getNumberStatus(number),
@@ -1872,6 +1902,9 @@ class _NumbersScreenState extends State<NumbersScreen> {
                           count > 0 ? 'Liczba wpisów: $count' : 'Brak wpisów',
                         ),
                         trailing: const Icon(Icons.arrow_forward_ios),
+                        onLongPress: () {
+                          _deleteTask(task);
+                        },
                         onTap: () async {
                           await Navigator.push(
                             context,

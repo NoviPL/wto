@@ -804,6 +804,41 @@ class AppDatabase {
       orderBy: 'id DESC',
     );
   }
+  static Future<void> deleteTask(int id) async {
+    final db = await database;
+
+    final old = await db.query(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (old.isEmpty) return;
+
+    final year = old.first['year'] as int;
+    final number = old.first['number'].toString();
+
+    await db.delete(
+      'tasks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    await SyncManager.deleteTask(
+      year: year,
+      number: number,
+    );
+
+    await addChangeLog(
+      entityType: 'Zadanie',
+      entityId: id.toString(),
+      action: 'Usunięcie',
+      oldValue: '$number | $year',
+      newValue: '',
+    );
+  }
+  
   static Future<void> insertYear(int year) async {
     final db = await database;
 
