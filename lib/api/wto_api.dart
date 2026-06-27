@@ -143,4 +143,106 @@ class WtoApi {
       return false;
     }
   }
+  static Future<List<Map<String, dynamic>>> getYears() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/years'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendYear({
+    required int year,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/years'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'year': year,
+          'deleted': 0,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getTasks() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/tasks'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendTask({
+    required int year,
+    required String number,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/tasks'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'year': year,
+          'number': number,
+          'deleted': 0,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> deleteTask({
+    required int year,
+    required String number,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$serverUrl/tasks/$year/$number'),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }
