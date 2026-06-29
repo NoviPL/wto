@@ -6,6 +6,7 @@ import 'sync_queue.dart';
 import 'sync_cars.dart';
 import 'sync_car_terms.dart';
 import 'sync_car_notes.dart';
+import 'sync_messages.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
@@ -16,6 +17,7 @@ class SyncManager {
     await syncCarsFromServer();
     await syncCarTermsFromServer();
     await syncCarNotesFromServer();
+    await syncMessagesFromServer();
   }
 
   static Future<void> syncUsersFromServer() async {
@@ -180,6 +182,47 @@ class SyncManager {
         userId: userId,
         serverImagePath: serverImagePath,
         deleted: deleted,
+      );
+    });
+  }
+  static Future<void> syncMessagesFromServer() async {
+    await SyncMessages.syncFromServer();
+  }
+
+  static Future<bool> sendMessage({
+    required String messageUuid,
+    required String title,
+    required String text,
+    required String level,
+    required String dateTime,
+    required String userId,
+    String? serverImagePath,
+    bool deleted = false,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncMessages.sendMessage(
+        messageUuid: messageUuid,
+        title: title,
+        text: text,
+        level: level,
+        dateTime: dateTime,
+        userId: userId,
+        serverImagePath: serverImagePath,
+        deleted: deleted,
+      );
+    });
+  }
+
+  static Future<bool> markMessageRead({
+    required String messageUuid,
+    required String userId,
+    required String readAt,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncMessages.markMessageRead(
+        messageUuid: messageUuid,
+        userId: userId,
+        readAt: readAt,
       );
     });
   }

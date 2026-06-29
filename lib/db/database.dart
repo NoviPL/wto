@@ -485,7 +485,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 19,
+      version: 20,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -554,12 +554,25 @@ class AppDatabase {
         await db.execute('''
           CREATE TABLE messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_uuid TEXT UNIQUE,
             title TEXT NOT NULL,
             text TEXT NOT NULL,
             level TEXT NOT NULL,
             dateTime TEXT NOT NULL,
             userId TEXT NOT NULL,
-            isRead INTEGER DEFAULT 0
+            imagePath TEXT,
+            serverImagePath TEXT,
+            deleted INTEGER DEFAULT 0
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE message_reads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_uuid TEXT NOT NULL,
+            userId TEXT NOT NULL,
+            readAt TEXT NOT NULL,
+            UNIQUE(message_uuid, userId)
           )
         ''');
 
@@ -851,6 +864,41 @@ class AppDatabase {
             );
           } catch (_) {}
         }
+        if (oldVersion < 20) {
+          try {
+            await db.execute(
+              'ALTER TABLE messages ADD COLUMN message_uuid TEXT',
+            );
+          } catch (_) {}
+
+          try {
+            await db.execute(
+              'ALTER TABLE messages ADD COLUMN imagePath TEXT',
+            );
+          } catch (_) {}
+
+          try {
+            await db.execute(
+              'ALTER TABLE messages ADD COLUMN serverImagePath TEXT',
+            );
+          } catch (_) {}
+
+          try {
+            await db.execute(
+              'ALTER TABLE messages ADD COLUMN deleted INTEGER DEFAULT 0',
+            );
+          } catch (_) {}
+
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS message_reads (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              message_uuid TEXT NOT NULL,
+              userId TEXT NOT NULL,
+              readAt TEXT NOT NULL,
+              UNIQUE(message_uuid, userId)
+            )
+          ''');
+        }
       },
     );
   }
@@ -1118,17 +1166,28 @@ class AppDatabase {
   }
   static Future<List<Map<String, dynamic>>> getMessages() async {
     final db = await database;
+    final currentUserId = await getCurrentUserId();
 
-    return db.query(
-      'messages',
-      orderBy: '''
+    return db.rawQuery('''
+      SELECT 
+        m.*,
         CASE 
-          WHEN level = 'WAŻNE' THEN 0
+          WHEN r.id IS NULL THEN 0
           ELSE 1
+        END AS isRead
+      FROM messages m
+      LEFT JOIN message_reads r
+        ON r.message_uuid = m.message_uuid
+        AND r.userId = ?
+      WHERE m.deleted = 0
+      ORDER BY
+        CASE 
+          WHEN m.level = 'WAŻNE' THEN 0
+          WHEN m.level = 'ISTOTNE' THEN 1
+          ELSE 2
         END,
-        id DESC
-      ''',
-    );
+        m.id DESC
+    ''', [currentUserId]);
   }
 
   static Future<void> insertMessage(
@@ -1136,17 +1195,28 @@ class AppDatabase {
     String text,
     String level,
     String dateTime,
-    String userId,
-  ) async {
+    String userId, {
+    String? imagePath,
+  }) async {
     final db = await database;
+    final messageUuid = const Uuid().v4();
+
+    String? serverImagePath;
+
+    if (imagePath != null && imagePath.isNotEmpty) {
+      serverImagePath = await UploadManager.uploadFile(imagePath);
+    }
 
     final id = await db.insert('messages', {
+      'message_uuid': messageUuid,
       'title': title,
       'text': text,
       'level': level,
       'dateTime': dateTime,
       'userId': userId,
-      'isRead': 0,
+      'imagePath': imagePath,
+      'serverImagePath': serverImagePath,
+      'deleted': 0,
     });
 
     await addChangeLog(
@@ -1156,73 +1226,162 @@ class AppDatabase {
       oldValue: '',
       newValue: '$title | $level',
     );
+
+    await SyncManager.sendMessage(
+      messageUuid: messageUuid,
+      title: title,
+      text: text,
+      level: level,
+      dateTime: dateTime,
+      userId: userId,
+      serverImagePath: serverImagePath,
+    );
   }
 
-  static Future<void> insertMessageFromServer(
-    int serverId,
-    String title,
-    String text,
-    String level,
-    String dateTime,
-    String userId,
-  ) async {
+  static Future<void> upsertMessageFromServer({
+    required String messageUuid,
+    required String title,
+    required String text,
+    required String level,
+    required String dateTime,
+    required String userId,
+    String? serverImagePath,
+    bool deleted = false,
+  }) async {
+    if (messageUuid.isEmpty) return;
+
     final db = await database;
 
-    final existing = await db.query(
-      'messages',
-      where: 'id = ?',
-      whereArgs: [serverId],
-      limit: 1,
-    );
-
-    if (existing.isNotEmpty) {
+    if (deleted) {
       await db.update(
         'messages',
-        {
-          'title': title,
-          'text': text,
-          'level': level,
-          'dateTime': dateTime,
-          'userId': userId,
-        },
-        where: 'id = ?',
-        whereArgs: [serverId],
+        {'deleted': 1},
+        where: 'message_uuid = ?',
+        whereArgs: [messageUuid],
       );
       return;
+    }
+
+    String? localImagePath;
+
+    if (serverImagePath != null && serverImagePath.isNotEmpty) {
+      localImagePath = await DownloadManager.downloadFile(serverImagePath);
     }
 
     await db.insert(
       'messages',
       {
-        'id': serverId,
+        'message_uuid': messageUuid,
         'title': title,
         'text': text,
         'level': level,
         'dateTime': dateTime,
         'userId': userId,
-        'isRead': 0,
+        'imagePath': localImagePath,
+        'serverImagePath': serverImagePath,
+        'deleted': 0,
       },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> upsertMessageReadFromServer({
+    required String messageUuid,
+    required String userId,
+    required String readAt,
+  }) async {
+    if (messageUuid.isEmpty || userId.isEmpty) return;
+
+    final db = await database;
+
+    await db.insert(
+      'message_reads',
+      {
+        'message_uuid': messageUuid,
+        'userId': userId,
+        'readAt': readAt,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
   static Future<void> markMessageAsRead(int id) async {
     final db = await database;
+    final currentUserId = await getCurrentUserId();
 
-    await db.update(
+    final result = await db.query(
       'messages',
-      {'isRead': 1},
       where: 'id = ?',
       whereArgs: [id],
+      limit: 1,
     );
+
+    if (result.isEmpty) return;
+
+    final messageUuid = result.first['message_uuid']?.toString() ?? '';
+    if (messageUuid.isEmpty) return;
+
+    final readAt = DateTime.now().toString();
+
+    await db.insert(
+      'message_reads',
+      {
+        'message_uuid': messageUuid,
+        'userId': currentUserId,
+        'readAt': readAt,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    await SyncManager.markMessageRead(
+      messageUuid: messageUuid,
+      userId: currentUserId,
+      readAt: readAt,
+    );
+  }
+
+  static Future<List<String>> getMessageReadUserNames(int messageId) async {
+    final db = await database;
+
+    final message = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+
+    if (message.isEmpty) return [];
+
+    final messageUuid = message.first['message_uuid']?.toString() ?? '';
+    if (messageUuid.isEmpty) return [];
+
+    final rows = await db.rawQuery('''
+      SELECT u.name
+      FROM message_reads r
+      LEFT JOIN users u ON u.id = r.userId
+      WHERE r.message_uuid = ?
+      ORDER BY u.name ASC
+    ''', [messageUuid]);
+
+    return rows
+        .map((row) => row['name']?.toString() ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
   }
 
   static Future<int> getUnreadMessagesCount() async {
     final db = await database;
+    final currentUserId = await getCurrentUserId();
 
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM messages WHERE isRead = 0',
-    );
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as count
+      FROM messages m
+      LEFT JOIN message_reads r
+        ON r.message_uuid = m.message_uuid
+        AND r.userId = ?
+      WHERE m.deleted = 0
+        AND r.id IS NULL
+    ''', [currentUserId]);
 
     return Sqflite.firstIntValue(result) ?? 0;
   }
@@ -1237,22 +1396,94 @@ class AppDatabase {
       limit: 1,
     );
 
-    final oldValue = old.isEmpty
-        ? ''
-        : '${old.first['title']} | ${old.first['text']} | ${old.first['level']}';
+    if (old.isEmpty) return;
 
-    await db.delete(
+    final message = old.first;
+    final messageUuid = message['message_uuid']?.toString() ?? '';
+
+    await db.update(
       'messages',
+      {'deleted': 1},
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    if (messageUuid.isNotEmpty) {
+      await SyncManager.sendMessage(
+        messageUuid: messageUuid,
+        title: message['title']?.toString() ?? '',
+        text: message['text']?.toString() ?? '',
+        level: message['level']?.toString() ?? 'OGŁOSZENIA',
+        dateTime: message['dateTime']?.toString() ?? '',
+        userId: message['userId']?.toString() ?? 'USER_001',
+        serverImagePath: message['serverImagePath']?.toString(),
+        deleted: true,
+      );
+    }
 
     await addChangeLog(
       entityType: 'Komunikat',
       entityId: id.toString(),
       action: 'Usunięcie',
-      oldValue: oldValue,
+      oldValue:
+          '${message['title']} | ${message['text']} | ${message['level']}',
       newValue: '',
+    );
+  }
+
+  static Future<void> updateMessage(
+    int id,
+    String title,
+    String text,
+    String level,
+  ) async {
+    final db = await database;
+
+    final old = await db.query(
+      'messages',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (old.isEmpty) return;
+
+    final message = old.first;
+    final messageUuid = message['message_uuid']?.toString() ?? '';
+
+    final oldValue =
+        '${message['title']} | ${message['text']} | ${message['level']}';
+    final newValue = '$title | $text | $level';
+
+    await db.update(
+      'messages',
+      {
+        'title': title,
+        'text': text,
+        'level': level,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (messageUuid.isNotEmpty) {
+      await SyncManager.sendMessage(
+        messageUuid: messageUuid,
+        title: title,
+        text: text,
+        level: level,
+        dateTime: message['dateTime']?.toString() ?? '',
+        userId: message['userId']?.toString() ?? 'USER_001',
+        serverImagePath: message['serverImagePath']?.toString(),
+      );
+    }
+
+    await addChangeLog(
+      entityType: 'Komunikat',
+      entityId: id.toString(),
+      action: 'Edycja',
+      oldValue: oldValue,
+      newValue: newValue,
     );
   }
   static Future<List<Map<String, dynamic>>> getUsers() async {
@@ -1637,47 +1868,6 @@ class AppDatabase {
     return isAdmin || role == 'ADMIN' || role == 'EKSPERT';
   }
 
-  static Future<void> updateMessage(
-    int id,
-    String title,
-    String text,
-    String level,
-  ) async {
-    final db = await database;
-
-    final old = await db.query(
-      'messages',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-
-    final oldValue = old.isEmpty
-        ? ''
-        : '${old.first['title']} | ${old.first['text']} | ${old.first['level']}';
-
-    final newValue = '$title | $text | $level';
-
-    await db.update(
-      'messages',
-      {
-        'title': title,
-        'text': text,
-        'level': level,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    await addChangeLog(
-      entityType: 'Komunikat',
-      entityId: id.toString(),
-      action: 'Edycja',
-      oldValue: oldValue,
-      newValue: newValue,
-    );
-  }
-
   static Future<void> addChangeLog({
     required String entityType,
     required String entityId,
@@ -1912,47 +2102,7 @@ class AppDatabase {
       await file.delete();
     }
   }
-  static Future<void> syncMessagesFromServer() async {
-    try {
-      final messages = await WtoApi.getMessages();
-
-      await removeDeletedMessagesFromServer(messages);
-
-      for (final msg in messages) {
-        await insertMessageFromServer(
-          msg['id'],
-          msg['title'] ?? '',
-          msg['text'] ?? '',
-          msg['level'] ?? 'OGŁOSZENIE',
-          msg['dateTime'] ?? '',
-          msg['userId'] ?? '',
-        );
-      }
-    } catch (_) {}
-  }
-  static Future<void> removeDeletedMessagesFromServer(
-    List<Map<String, dynamic>> serverMessages,
-  ) async {
-    final db = await database;
-
-    final localMessages = await db.query('messages');
-
-    final serverIds = serverMessages
-        .map((e) => e['id'] as int)
-        .toSet();
-
-    for (final msg in localMessages) {
-      final localId = msg['id'] as int;
-
-      if (!serverIds.contains(localId)) {
-        await db.delete(
-          'messages',
-          where: 'id = ?',
-          whereArgs: [localId],
-        );
-      }
-    }
-  }
+  
   static Future<void> syncUsersFromServer() async {
     try {
       final users = await WtoApi.getUsers();

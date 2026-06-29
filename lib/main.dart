@@ -619,7 +619,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> loadMessages() async {
-    await AppDatabase.syncMessagesFromServer();
+    await SyncManager.syncMessagesFromServer();
 
     final data = await AppDatabase.getMessages();
     final important = await AppDatabase.canCurrentUserAddImportantMessages();
@@ -770,23 +770,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
       currentUserId,
     );
 
-    final sent = await WtoApi.sendMessage(
-      title: title,
-      text: text,
-      level: level,
-      dateTime: time,
-      userId: currentUserId,
-    );
-
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          sent
-              ? 'Komunikat zapisany lokalnie i wysłany na serwer.'
-              : 'Komunikat zapisany lokalnie. Brak połączenia z serwerem.',
-        ),
+        content: const Text('Komunikat zapisany.'),
       ),
     );
 
@@ -968,15 +956,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
       level,
     );
 
-    await WtoApi.updateMessage(
-      id: id,
-      title: title,
-      text: text,
-      level: level,
-      dateTime: message['dateTime']?.toString() ?? '',
-      userId: message['userId']?.toString() ?? currentUserId,
-    );
-
     await loadMessages();
   }
 
@@ -991,6 +970,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final dateTime = message['dateTime']?.toString() ?? '';
     final userId = message['userId']?.toString() ?? '';
     final userName = await userNameById(userId);
+    final readUsers =
+        await AppDatabase.getMessageReadUserNames(message['id'] as int);
     final color = messageColor(level);
     final isRead = message['isRead'] == 1;
 
@@ -1037,6 +1018,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                readUsers.isEmpty
+                    ? 'Przeczytane przez: nikt'
+                    : 'Przeczytane przez: ${readUsers.join(', ')}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ],
