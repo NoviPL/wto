@@ -658,6 +658,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final titleController = TextEditingController();
     final textController = TextEditingController();
     String selectedLevel = canAddImportantMessages ? 'WAŻNE' : 'ISTOTNE';
+    File? selectedImage;
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -720,6 +721,36 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         });
                       },
                     ),
+                    const SizedBox(height: 12),
+
+                    if (selectedImage != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          selectedImage!,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+
+                    const SizedBox(height: 8),
+
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await ImagePicker().pickImage(
+                          source: ImageSource.gallery,
+                        );
+
+                        if (picked == null) return;
+
+                        setDialogState(() {
+                          selectedImage = File(picked.path);
+                        });
+                      },
+                      icon: const Icon(Icons.photo),
+                      label: const Text('Dodaj zdjęcie'),
+                    ),
                   ],
                 ),
               ),
@@ -739,6 +770,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       'title': title,
                       'text': text,
                       'level': selectedLevel,
+                      'imagePath': selectedImage?.path ?? '',
                     });
                   },
                   child: const Text('Dodaj'),
@@ -761,13 +793,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final title = result['title'] ?? '';
     final text = result['text'] ?? '';
     final level = result['level'] ?? 'OGŁOSZENIE';
-
+    final imagePath = result['imagePath'] ?? '';
     final sent = await AppDatabase.insertMessage(
       title,
       text,
       level,
       time,
       currentUserId,
+      imagePath: imagePath != null && imagePath.isNotEmpty ? imagePath : null,
     );
 
     if (!mounted) return;
@@ -970,6 +1003,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
     final title = message['title']?.toString() ?? '';
     final text = message['text']?.toString() ?? '';
+    final imagePath = message['imagePath']?.toString() ?? '';
     final level = message['level']?.toString() ?? 'OGŁOSZENIE';
     final dateTime = message['dateTime']?.toString() ?? '';
     final userId = message['userId']?.toString() ?? '';
@@ -1016,6 +1050,32 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 text,
                 style: const TextStyle(fontSize: 16),
               ),
+              if (imagePath.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenSingleImage(
+                          imagePath: imagePath,
+                        ),
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(imagePath),
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Text('Nie udało się wyświetlić zdjęcia');
+                      },
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               Text(
                 '$dateTime\n$userName',
@@ -1055,6 +1115,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
       appBar: AppBar(
         title: const Text('Komunikaty'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Odśwież',
+            onPressed: () async {
+              await loadMessages();
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Komunikaty odświeżone'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: showAddMessageDialog,
@@ -1079,6 +1157,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final dateTime = message['dateTime']?.toString() ?? '';
                 final color = messageColor(level);
                 final isRead = message['isRead'] == 1;
+                final imagePath = message['imagePath']?.toString() ?? '';
+                final hasImage = imagePath.isNotEmpty;
 
                 return Card(
                   color: isRead ? Colors.white : color.withOpacity(0.10),
@@ -1093,13 +1173,32 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
-                    leading: CircleAvatar(
-                      backgroundColor: color,
-                      child: Icon(
-                        isRead ? Icons.mark_email_read : messageIcon(level),
-                        color: Colors.white,
-                      ),
-                    ),
+                    leading: hasImage
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(imagePath),
+                              width: 52,
+                              height: 52,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return CircleAvatar(
+                                  backgroundColor: color,
+                                  child: Icon(
+                                    isRead ? Icons.mark_email_read : messageIcon(level),
+                                    color: Colors.white,
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : CircleAvatar(
+                            backgroundColor: color,
+                            child: Icon(
+                              isRead ? Icons.mark_email_read : messageIcon(level),
+                              color: Colors.white,
+                            ),
+                          ),
                     title: Text(
                       title,
                       style: TextStyle(
@@ -1146,6 +1245,63 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 );
               },
             ),
+    );
+  }
+}
+
+class FullScreenSingleImage extends StatelessWidget {
+  final String imagePath;
+
+  const FullScreenSingleImage({
+    super.key,
+    required this.imagePath,
+  });
+
+  Future<void> saveImage(BuildContext context) async {
+    try {
+      await Gal.putImage(imagePath);
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Zdjęcie zapisane w galerii'),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nie udało się zapisać zdjęcia'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Zdjęcie'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: () => saveImage(context),
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          child: Image.file(
+            File(imagePath),
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
     );
   }
 }
