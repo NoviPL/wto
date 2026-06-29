@@ -762,7 +762,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final text = result['text'] ?? '';
     final level = result['level'] ?? 'OGŁOSZENIE';
 
-    await AppDatabase.insertMessage(
+    final sent = await AppDatabase.insertMessage(
       title,
       text,
       level,
@@ -774,7 +774,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Komunikat zapisany.'),
+        content: Text(
+          sent
+              ? 'Komunikat zapisany i wysłany na serwer.'
+              : 'Komunikat zapisany TYLKO lokalnie. Nie wysłano na serwer.',
+        ),
       ),
     );
 

@@ -1190,7 +1190,7 @@ class AppDatabase {
     ''', [currentUserId]);
   }
 
-  static Future<void> insertMessage(
+  static Future<bool> insertMessage(
     String title,
     String text,
     String level,
@@ -1227,7 +1227,7 @@ class AppDatabase {
       newValue: '$title | $level',
     );
 
-    await SyncManager.sendMessage(
+    final sent = await SyncManager.sendMessage(
       messageUuid: messageUuid,
       title: title,
       text: text,
@@ -1236,6 +1236,8 @@ class AppDatabase {
       userId: userId,
       serverImagePath: serverImagePath,
     );
+
+    return sent;
   }
 
   static Future<void> upsertMessageFromServer({
