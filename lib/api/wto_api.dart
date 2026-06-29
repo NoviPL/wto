@@ -351,4 +351,108 @@ class WtoApi {
       return false;
     }
   }
+  static Future<List<Map<String, dynamic>>> getCarTerms() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/car_terms'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendCarTerms({
+    required String carUuid,
+    String? ocDate,
+    String? acDate,
+    String? btDate,
+    bool deleted = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/car_terms'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'car_uuid': carUuid,
+          'ocDate': ocDate,
+          'acDate': acDate,
+          'btDate': btDate,
+          'deleted': deleted,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+  static Future<List<Map<String, dynamic>>> getCarNotes() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/car_notes'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendCarNote({
+    required String carNoteUuid,
+    required String carUuid,
+    required String section,
+    required String text,
+    required String dateTime,
+    required String userId,
+    String? serverImagePath,
+    bool deleted = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/car_notes'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'car_note_uuid': carNoteUuid,
+          'car_uuid': carUuid,
+          'section': section,
+          'text': text,
+          'dateTime': dateTime,
+          'userId': userId,
+          'imagePath': serverImagePath,
+          'deleted': deleted,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }

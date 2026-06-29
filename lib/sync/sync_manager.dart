@@ -4,6 +4,8 @@ import 'sync_tasks.dart';
 import 'sync_entries.dart';
 import 'sync_queue.dart';
 import 'sync_cars.dart';
+import 'sync_car_terms.dart';
+import 'sync_car_notes.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
@@ -12,6 +14,8 @@ class SyncManager {
     await syncTasksFromServer();
     await syncEntriesFromServer();
     await syncCarsFromServer();
+    await syncCarTermsFromServer();
+    await syncCarNotesFromServer();
   }
 
   static Future<void> syncUsersFromServer() async {
@@ -127,6 +131,54 @@ class SyncManager {
         plate: plate,
         createdAt: createdAt,
         colorIndex: colorIndex,
+        deleted: deleted,
+      );
+    });
+  }
+  static Future<void> syncCarTermsFromServer() async {
+    await SyncCarTerms.syncFromServer();
+  }
+
+  static Future<bool> sendCarTerms({
+    required String carUuid,
+    String? ocDate,
+    String? acDate,
+    String? btDate,
+    bool deleted = false,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncCarTerms.sendCarTerms(
+        carUuid: carUuid,
+        ocDate: ocDate,
+        acDate: acDate,
+        btDate: btDate,
+        deleted: deleted,
+      );
+    });
+  }
+  static Future<void> syncCarNotesFromServer() async {
+    await SyncCarNotes.syncFromServer();
+  }
+
+  static Future<bool> sendCarNote({
+    required String carNoteUuid,
+    required String carUuid,
+    required String section,
+    required String text,
+    required String dateTime,
+    required String userId,
+    String? serverImagePath,
+    bool deleted = false,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncCarNotes.sendCarNote(
+        carNoteUuid: carNoteUuid,
+        carUuid: carUuid,
+        section: section,
+        text: text,
+        dateTime: dateTime,
+        userId: userId,
+        serverImagePath: serverImagePath,
         deleted: deleted,
       );
     });

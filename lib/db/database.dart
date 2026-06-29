@@ -90,6 +90,25 @@ class AppDatabase {
       oldValue: oldValue,
       newValue: newValue,
     );
+    final car = await db.query(
+      'cars',
+      where: 'id = ?',
+      whereArgs: [carId],
+      limit: 1,
+    );
+
+    if (car.isNotEmpty) {
+      final carUuid = car.first['car_uuid']?.toString();
+
+      if (carUuid != null && carUuid.isNotEmpty) {
+        await SyncManager.sendCarTerms(
+          carUuid: carUuid,
+          ocDate: ocDate,
+          acDate: acDate,
+          btDate: btDate,
+        );
+      }
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getCars() async {
@@ -263,14 +282,23 @@ class AppDatabase {
     String? imagePath,
   }) async {
     final db = await database;
+    final carNoteUuid = const Uuid().v4();
+
+    String? serverImagePath;
+
+    if (imagePath != null && imagePath.isNotEmpty) {
+      serverImagePath = await UploadManager.uploadFile(imagePath);
+    }
 
     final id = await db.insert('car_notes', {
+      'car_note_uuid': carNoteUuid,
       'carId': carId,
       'section': section,
       'text': text,
       'dateTime': dateTime,
       'userId': userId,
       'imagePath': imagePath,
+      'serverImagePath': serverImagePath,
     });
 
     await addChangeLog(
@@ -282,6 +310,28 @@ class AppDatabase {
       oldValue: '',
       newValue: '$section | $text',
     );
+    final car = await db.query(
+      'cars',
+      where: 'id = ?',
+      whereArgs: [carId],
+      limit: 1,
+    );
+
+    if (car.isNotEmpty) {
+      final carUuid = car.first['car_uuid']?.toString();
+
+      if (carUuid != null && carUuid.isNotEmpty) {
+        await SyncManager.sendCarNote(
+          carNoteUuid: carNoteUuid,
+          carUuid: carUuid,
+          section: section,
+          text: text,
+          dateTime: dateTime,
+          userId: userId,
+          serverImagePath: serverImagePath,
+        );
+      }
+    }
   }
 
   static Future<void> updateCarNote(
@@ -307,6 +357,38 @@ class AppDatabase {
       where: 'id = ?',
       whereArgs: [id],
     );
+    if (old.isNotEmpty) {
+      final note = old.first;
+
+      final carId = note['carId'] as int;
+
+      final car = await db.query(
+        'cars',
+        where: 'id = ?',
+        whereArgs: [carId],
+        limit: 1,
+      );
+
+      if (car.isNotEmpty) {
+        final carUuid = car.first['car_uuid']?.toString();
+        final carNoteUuid = note['car_note_uuid']?.toString();
+
+        if (carUuid != null &&
+            carUuid.isNotEmpty &&
+            carNoteUuid != null &&
+            carNoteUuid.isNotEmpty) {
+          await SyncManager.sendCarNote(
+            carNoteUuid: carNoteUuid,
+            carUuid: carUuid,
+            section: note['section']?.toString() ?? '',
+            text: text,
+            dateTime: note['dateTime']?.toString() ?? '',
+            userId: note['userId']?.toString() ?? 'USER_001',
+            serverImagePath: note['serverImagePath']?.toString(),
+          );
+        }
+      }
+    }
 
     await addChangeLog(
       entityType: 'Flota / notatka',
@@ -331,6 +413,39 @@ class AppDatabase {
         ? ''
         : '${old.first['section']} | ${old.first['text']}';
 
+    if (old.isNotEmpty) {
+      final note = old.first;
+
+      final carId = note['carId'] as int;
+
+      final car = await db.query(
+        'cars',
+        where: 'id = ?',
+        whereArgs: [carId],
+        limit: 1,
+      );
+
+      if (car.isNotEmpty) {
+        final carUuid = car.first['car_uuid']?.toString();
+        final carNoteUuid = note['car_note_uuid']?.toString();
+
+        if (carUuid != null &&
+            carUuid.isNotEmpty &&
+            carNoteUuid != null &&
+            carNoteUuid.isNotEmpty) {
+          await SyncManager.sendCarNote(
+            carNoteUuid: carNoteUuid,
+            carUuid: carUuid,
+            section: note['section']?.toString() ?? '',
+            text: note['text']?.toString() ?? '',
+            dateTime: note['dateTime']?.toString() ?? '',
+            userId: note['userId']?.toString() ?? 'USER_001',
+            serverImagePath: note['serverImagePath']?.toString(),
+            deleted: true,
+          );
+        }
+      }
+    }
     await db.delete(
       'car_notes',
       where: 'id = ?',
@@ -370,7 +485,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 18,
+      version: 19,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -415,12 +530,14 @@ class AppDatabase {
         await db.execute('''
           CREATE TABLE car_notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            car_note_uuid TEXT UNIQUE,
             carId INTEGER NOT NULL,
             section TEXT NOT NULL,
             text TEXT NOT NULL,
             dateTime TEXT NOT NULL,
             userId TEXT NOT NULL,
-            imagePath TEXT
+            imagePath TEXT,
+            serverImagePath TEXT
           )
         ''');
 
@@ -718,6 +835,19 @@ class AppDatabase {
           try {
             await db.execute(
               'ALTER TABLE cars ADD COLUMN car_uuid TEXT',
+            );
+          } catch (_) {}
+        }
+        if (oldVersion < 19) {
+          try {
+            await db.execute(
+              'ALTER TABLE car_notes ADD COLUMN car_note_uuid TEXT',
+            );
+          } catch (_) {}
+
+          try {
+            await db.execute(
+              'ALTER TABLE car_notes ADD COLUMN serverImagePath TEXT',
             );
           } catch (_) {}
         }
@@ -2119,6 +2249,227 @@ class AppDatabase {
       }
     } catch (e) {
       print('Błąd synchronizacji cars: $e');
+    }
+  }
+  static Future<void> upsertCarTermsFromServer({
+    required String carUuid,
+    String? ocDate,
+    String? acDate,
+    String? btDate,
+  }) async {
+    final db = await database;
+
+    final carResult = await db.query(
+      'cars',
+      where: 'car_uuid = ?',
+      whereArgs: [carUuid],
+      limit: 1,
+    );
+
+    if (carResult.isEmpty) return;
+
+    final carId = carResult.first['id'] as int;
+
+    final existing = await db.query(
+      'car_terms',
+      where: 'carId = ?',
+      whereArgs: [carId],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      await db.update(
+        'car_terms',
+        {
+          'ocDate': ocDate,
+          'acDate': acDate,
+          'btDate': btDate,
+        },
+        where: 'carId = ?',
+        whereArgs: [carId],
+      );
+      return;
+    }
+
+    await db.insert(
+      'car_terms',
+      {
+        'carId': carId,
+        'ocDate': ocDate,
+        'acDate': acDate,
+        'btDate': btDate,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+  static Future<void> syncCarTermsFromServer() async {
+    try {
+      final terms = await WtoApi.getCarTerms();
+
+      final db = await database;
+
+      for (final item in terms) {
+        final carUuid = item['car_uuid']?.toString();
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (carUuid == null || carUuid.isEmpty) continue;
+
+        final carResult = await db.query(
+          'cars',
+          where: 'car_uuid = ?',
+          whereArgs: [carUuid],
+          limit: 1,
+        );
+
+        if (carResult.isEmpty) continue;
+
+        final carId = carResult.first['id'] as int;
+
+        if (deleted) {
+          await db.delete(
+            'car_terms',
+            where: 'carId = ?',
+            whereArgs: [carId],
+          );
+          continue;
+        }
+
+        await upsertCarTermsFromServer(
+          carUuid: carUuid,
+          ocDate: item['ocDate']?.toString(),
+          acDate: item['acDate']?.toString(),
+          btDate: item['btDate']?.toString(),
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji car_terms: $e');
+    }
+  }
+  static Future<void> upsertCarNoteFromServer({
+    required String carNoteUuid,
+    required String carUuid,
+    required String section,
+    required String text,
+    required String dateTime,
+    required String userId,
+    String? imagePath,
+    String? serverImagePath,
+  }) async {
+    final db = await database;
+
+    final carResult = await db.query(
+      'cars',
+      where: 'car_uuid = ?',
+      whereArgs: [carUuid],
+      limit: 1,
+    );
+
+    if (carResult.isEmpty) return;
+
+    final carId = carResult.first['id'] as int;
+
+    final existing = await db.query(
+      'car_notes',
+      where: 'car_note_uuid = ?',
+      whereArgs: [carNoteUuid],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      await db.update(
+        'car_notes',
+        {
+          'carId': carId,
+          'section': section,
+          'text': text,
+          'dateTime': dateTime,
+          'userId': userId,
+          'imagePath': imagePath,
+          'serverImagePath': serverImagePath,
+        },
+        where: 'car_note_uuid = ?',
+        whereArgs: [carNoteUuid],
+      );
+      return;
+    }
+
+    await db.insert(
+      'car_notes',
+      {
+        'car_note_uuid': carNoteUuid,
+        'carId': carId,
+        'section': section,
+        'text': text,
+        'dateTime': dateTime,
+        'userId': userId,
+        'imagePath': imagePath,
+        'serverImagePath': serverImagePath,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<void> syncCarNotesFromServer() async {
+    try {
+      final notes = await WtoApi.getCarNotes();
+
+      final db = await database;
+
+      for (final item in notes) {
+        final carNoteUuid = item['car_note_uuid']?.toString();
+        final carUuid = item['car_uuid']?.toString();
+        final section = item['section']?.toString() ?? '';
+        final text = item['text']?.toString() ?? '';
+        final dateTime = item['dateTime']?.toString() ?? '';
+        final userId = item['userId']?.toString() ?? 'USER_001';
+        final serverImagePath = item['imagePath']?.toString();
+
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (carNoteUuid == null || carNoteUuid.isEmpty) continue;
+        if (carUuid == null || carUuid.isEmpty) continue;
+
+        final carResult = await db.query(
+          'cars',
+          where: 'car_uuid = ?',
+          whereArgs: [carUuid],
+          limit: 1,
+        );
+
+        if (carResult.isEmpty) continue;
+
+        final carId = carResult.first['id'] as int;
+
+        if (deleted) {
+          await db.delete(
+            'car_notes',
+            where: 'car_note_uuid = ?',
+            whereArgs: [carNoteUuid],
+          );
+          continue;
+        }
+
+        String? localImagePath;
+
+        if (serverImagePath != null && serverImagePath.isNotEmpty) {
+          localImagePath = await DownloadManager.downloadFile(serverImagePath);
+        }
+
+        await upsertCarNoteFromServer(
+          carNoteUuid: carNoteUuid,
+          carUuid: carUuid,
+          section: section,
+          text: text,
+          dateTime: dateTime,
+          userId: userId,
+          imagePath: localImagePath,
+          serverImagePath: serverImagePath,
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji car_notes: $e');
     }
   }
 }
