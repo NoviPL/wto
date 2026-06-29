@@ -108,8 +108,10 @@ class AppDatabase {
     int colorIndex,
   ) async {
     final db = await database;
+    final carUuid = const Uuid().v4();
 
     final id = await db.insert('cars', {
+      'car_uuid': carUuid,
       'name': name,
       'plate': plate,
       'createdAt': createdAt,
@@ -122,6 +124,13 @@ class AppDatabase {
       action: 'Dodanie',
       oldValue: '',
       newValue: '$name | $plate',
+    );
+    await SyncManager.sendCar(
+      carUuid: carUuid,
+      name: name,
+      plate: plate,
+      createdAt: createdAt,
+      colorIndex: colorIndex,
     );
   }
 
@@ -155,6 +164,22 @@ class AppDatabase {
       whereArgs: [id],
     );
 
+    if (old.isNotEmpty) {
+      final car = old.first;
+      final carUuid = car['car_uuid']?.toString();
+
+      if (carUuid != null && carUuid.isNotEmpty) {
+        await SyncManager.sendCar(
+          carUuid: carUuid,
+          name: name,
+          plate: plate,
+          createdAt: car['createdAt']?.toString() ?? '',
+          colorIndex:
+              int.tryParse(car['colorIndex']?.toString() ?? '0') ?? 0,
+        );
+      }
+    }
+
     await addChangeLog(
       entityType: 'Auto',
       entityId: id.toString(),
@@ -176,6 +201,23 @@ class AppDatabase {
     final oldValue = old.isEmpty
         ? ''
         : '${old.first['name']} | ${old.first['plate']}';
+
+    if (old.isNotEmpty) {
+      final car = old.first;
+      final carUuid = car['car_uuid']?.toString();
+
+      if (carUuid != null && carUuid.isNotEmpty) {
+        await SyncManager.sendCar(
+          carUuid: carUuid,
+          name: car['name']?.toString() ?? '',
+          plate: car['plate']?.toString() ?? '',
+          createdAt: car['createdAt']?.toString() ?? '',
+          colorIndex:
+              int.tryParse(car['colorIndex']?.toString() ?? '0') ?? 0,
+          deleted: true,
+        );
+      }
+    }
 
     await db.delete(
       'car_notes',
@@ -328,7 +370,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 17,
+      version: 18,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -362,6 +404,7 @@ class AppDatabase {
         await db.execute('''
           CREATE TABLE cars (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            car_uuid TEXT UNIQUE,
             name TEXT NOT NULL,
             plate TEXT,
             createdAt TEXT,
@@ -668,6 +711,13 @@ class AppDatabase {
           try {
             await db.execute(
               'ALTER TABLE entries ADD COLUMN serverImagePath TEXT',
+            );
+          } catch (_) {}
+        }
+        if (oldVersion < 18) {
+          try {
+            await db.execute(
+              'ALTER TABLE cars ADD COLUMN car_uuid TEXT',
             );
           } catch (_) {}
         }
@@ -1985,6 +2035,90 @@ class AppDatabase {
       }
     } catch (e) {
       print('Błąd synchronizacji entries: $e');
+    }
+  }
+  static Future<void> upsertCarFromServer({
+    required String carUuid,
+    required String name,
+    required String plate,
+    required String createdAt,
+    required int colorIndex,
+  }) async {
+    final db = await database;
+
+    final existing = await db.query(
+      'cars',
+      where: 'car_uuid = ?',
+      whereArgs: [carUuid],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      await db.update(
+        'cars',
+        {
+          'name': name,
+          'plate': plate,
+          'createdAt': createdAt,
+          'colorIndex': colorIndex,
+        },
+        where: 'car_uuid = ?',
+        whereArgs: [carUuid],
+      );
+      return;
+    }
+
+    await db.insert(
+      'cars',
+      {
+        'car_uuid': carUuid,
+        'name': name,
+        'plate': plate,
+        'createdAt': createdAt,
+        'colorIndex': colorIndex,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  static Future<void> syncCarsFromServer() async {
+    try {
+      final cars = await WtoApi.getCars();
+
+      final db = await database;
+
+      for (final item in cars) {
+        final carUuid = item['car_uuid']?.toString();
+        final name = item['name']?.toString() ?? '';
+        final plate = item['plate']?.toString() ?? '';
+        final createdAt = item['createdAt']?.toString() ?? '';
+        final colorIndex =
+            int.tryParse(item['colorIndex']?.toString() ?? '0') ?? 0;
+
+        final deleted = item['deleted']?.toString() == '1' ||
+            item['deleted'] == true;
+
+        if (carUuid == null || carUuid.isEmpty) continue;
+
+        if (deleted) {
+          await db.delete(
+            'cars',
+            where: 'car_uuid = ?',
+            whereArgs: [carUuid],
+          );
+          continue;
+        }
+
+        await upsertCarFromServer(
+          carUuid: carUuid,
+          name: name,
+          plate: plate,
+          createdAt: createdAt,
+          colorIndex: colorIndex,
+        );
+      }
+    } catch (e) {
+      print('Błąd synchronizacji cars: $e');
     }
   }
 }

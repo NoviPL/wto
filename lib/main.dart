@@ -463,6 +463,8 @@ class _YearsScreenState extends State<YearsScreen> {
   }
 
   Future<void> loadYears() async {
+    await SyncManager.syncYearsFromServer();
+    await SyncManager.syncTasksFromServer();
     final data = await AppDatabase.getYears();
     final expert = await AppDatabase.isCurrentUserExpert();
 
@@ -1750,6 +1752,8 @@ class _NumbersScreenState extends State<NumbersScreen> {
   }
 
   Future<void> loadTasks() async {
+    await SyncManager.syncTasksFromServer();
+    await SyncManager.syncEntriesFromServer();
     final data = await AppDatabase.getTasks(widget.year);
 
     if (!mounted) return;
@@ -1949,6 +1953,7 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   Future<void> loadEntries() async {
+    await SyncManager.syncEntriesFromServer();
     final data = await AppDatabase.getEntries(widget.number);
 
     setState(() {
@@ -2625,6 +2630,8 @@ class _FleetScreenState extends State<FleetScreen> {
   }
 
   Future<void> loadCars() async {
+    await SyncManager.syncCarsFromServer();
+
     final data = await AppDatabase.getCars();
     final expert = await AppDatabase.isCurrentUserExpert();
 

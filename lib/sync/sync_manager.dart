@@ -2,6 +2,8 @@ import 'sync_users.dart';
 import 'sync_years.dart';
 import 'sync_tasks.dart';
 import 'sync_entries.dart';
+import 'sync_queue.dart';
+import 'sync_cars.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
@@ -9,6 +11,7 @@ class SyncManager {
     await syncYearsFromServer();
     await syncTasksFromServer();
     await syncEntriesFromServer();
+    await syncCarsFromServer();
   }
 
   static Future<void> syncUsersFromServer() async {
@@ -29,42 +32,54 @@ class SyncManager {
     required String role,
     required String pin,
   }) async {
-    return SyncUsers.sendUser(
-      id: id,
-      name: name,
-      role: role,
-      pin: pin,
-    );
+    return SyncQueue.run(() {
+      return SyncUsers.sendUser(
+        id: id,
+        name: name,
+        role: role,
+        pin: pin,
+      );
+    });
   }
 
   static Future<bool> deleteUser(String id) async {
-    return SyncUsers.deleteUser(id);
+    return SyncQueue.run(() {
+      return SyncUsers.deleteUser(id);
+    });
   }
 
   static Future<bool> sendYear({
     required int year,
   }) async {
-    return SyncYears.sendYear(year: year);
+    return SyncQueue.run(() {
+      return SyncYears.sendYear(
+        year: year,
+      );
+    });
   }
 
   static Future<bool> sendTask({
     required int year,
     required String number,
   }) async {
-    return SyncTasks.sendTask(
-      year: year,
-      number: number,
-    );
+    return SyncQueue.run(() {
+      return SyncTasks.sendTask(
+        year: year,
+        number: number,
+      );
+    });
   }
 
   static Future<bool> deleteTask({
     required int year,
     required String number,
   }) async {
-    return SyncTasks.deleteTask(
-      year: year,
-      number: number,
-    );
+    return SyncQueue.run(() {
+      return SyncTasks.deleteTask(
+        year: year,
+        number: number,
+      );
+    });
   }
   static Future<void> syncEntriesFromServer() async {
     await SyncEntries.syncFromServer();
@@ -80,15 +95,40 @@ class SyncManager {
     String? serverImagePath,
     bool deleted = false,
   }) async {
-    return SyncEntries.sendEntry(
-      entryUuid: entryUuid,
-      number: number,
-      category: category,
-      text: text,
-      dateTime: dateTime,
-      serverImagePath: serverImagePath,
-      userId: userId,
-      deleted: deleted,
-    );
+    return SyncQueue.run(() {
+      return SyncEntries.sendEntry(
+        entryUuid: entryUuid,
+        number: number,
+        category: category,
+        text: text,
+        dateTime: dateTime,
+        serverImagePath: serverImagePath,
+        userId: userId,
+        deleted: deleted,
+      );
+    });
+  }
+  static Future<void> syncCarsFromServer() async {
+    await SyncCars.syncFromServer();
+  }
+
+  static Future<bool> sendCar({
+    required String carUuid,
+    required String name,
+    required String plate,
+    required String createdAt,
+    required int colorIndex,
+    bool deleted = false,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncCars.sendCar(
+        carUuid: carUuid,
+        name: name,
+        plate: plate,
+        createdAt: createdAt,
+        colorIndex: colorIndex,
+        deleted: deleted,
+      );
+    });
   }
 }

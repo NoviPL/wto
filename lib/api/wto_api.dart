@@ -300,4 +300,55 @@ class WtoApi {
       return false;
     }
   }
+  static Future<List<Map<String, dynamic>>> getCars() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/cars'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendCar({
+    required String carUuid,
+    required String name,
+    required String plate,
+    required String createdAt,
+    required int colorIndex,
+    bool deleted = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/cars'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'car_uuid': carUuid,
+          'name': name,
+          'plate': plate,
+          'createdAt': createdAt,
+          'colorIndex': colorIndex,
+          'deleted': deleted,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }
