@@ -1938,7 +1938,8 @@ class EntryScreen extends StatefulWidget {
   State<EntryScreen> createState() => _EntryScreenState();
 }
 
-class _EntryScreenState extends State<EntryScreen> {
+class _EntryScreenState extends State<EntryScreen> 
+    with WidgetsBindingObserver {
   final TextEditingController controller = TextEditingController();
 
   List<File> selectedImages = [];
@@ -1949,6 +1950,7 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadEntries();
   }
 
@@ -2253,7 +2255,15 @@ class _EntryScreenState extends State<EntryScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      loadEntries();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     controller.dispose();
     super.dispose();
   }
@@ -2612,25 +2622,43 @@ Color carColor(int index) {
   return colors[index % colors.length];
 }
 
-class FleetScreen extends StatefulWidget {
+class FleetScreen extends StatefulWidget 
+    with WidgetsBindingObserver {
   const FleetScreen({super.key});
 
   @override
   State<FleetScreen> createState() => _FleetScreenState();
 }
 
-class _FleetScreenState extends State<FleetScreen> {
+class _FleetScreenState extends State<FleetScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> cars = [];
   bool canManageFleet = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadCars();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      loadCars();
+    }
   }
 
   Future<void> loadCars() async {
     await SyncManager.syncCarsFromServer();
+    await SyncManager.syncCarTermsFromServer();
+    await SyncManager.syncCarNotesFromServer();
 
     final data = await AppDatabase.getCars();
     final expert = await AppDatabase.isCurrentUserExpert();
@@ -2868,7 +2896,28 @@ class CarDetailsScreen extends StatefulWidget {
   State<CarDetailsScreen> createState() => _CarDetailsScreenState();
 }
 
-class _CarDetailsScreenState extends State<CarDetailsScreen> {
+class _CarDetailsScreenState extends State<CarDetailsScreen> 
+    with WidgetsBindingObserver {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = widget.car['name']?.toString() ?? '';
@@ -3020,7 +3069,9 @@ class CarNotesScreen extends StatefulWidget {
   State<CarNotesScreen> createState() => _CarNotesScreenState();
 }
 
-class _CarNotesScreenState extends State<CarNotesScreen> {
+class _CarNotesScreenState extends State<CarNotesScreen>
+    with WidgetsBindingObserver {
+
   final TextEditingController controller = TextEditingController();
   final picker = ImagePicker();
 
@@ -3029,7 +3080,21 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadNotes();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      loadNotes();
+    }
   }
 
   Future<void> addPhotoNote() async {
@@ -3112,6 +3177,8 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
   }
 
   Future<void> loadNotes() async {
+    await SyncManager.syncCarNotesFromServer();
+
     final data = await AppDatabase.getCarNotes(
       widget.car['id'] as int,
       widget.section,
@@ -3252,11 +3319,6 @@ class _CarNotesScreenState extends State<CarNotesScreen> {
     await loadNotes();
   }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -3548,6 +3610,7 @@ class _CarTermsScreenState extends State<CarTermsScreen> {
   }
 
   Future<void> loadTerms() async {
+    await SyncManager.syncCarTermsFromServer();
     final data = await AppDatabase.getCarTerms(widget.car['id'] as int);
 
     if (!mounted) return;
