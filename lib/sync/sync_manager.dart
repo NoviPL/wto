@@ -77,7 +77,7 @@ class SyncManager {
     required String text,
     required String dateTime,
     required String userId,
-    String? imagePath,
+    String? serverImagePath,
     bool deleted = false,
   }) async {
     return SyncEntries.sendEntry(
@@ -86,7 +86,7 @@ class SyncManager {
       category: category,
       text: text,
       dateTime: dateTime,
-      imagePath: imagePath,
+      serverImagePath: serverImagePath,
       userId: userId,
       deleted: deleted,
     );

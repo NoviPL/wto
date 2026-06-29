@@ -13,7 +13,7 @@ class SyncEntries {
     required String text,
     required String dateTime,
     required String userId,
-    String? imagePath,
+    String? serverImagePath,
     bool deleted = false,
   }) async {
     return WtoApi.sendEntry(
@@ -22,7 +22,7 @@ class SyncEntries {
       category: category,
       text: text,
       dateTime: dateTime,
-      imagePath: imagePath,
+      serverImagePath: serverImagePath,
       userId: userId,
       deleted: deleted,
     );

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class WtoApi {
-  static String serverUrl = 'http://192.168.10.110:8000';
+  static String serverUrl = 'http://10.119.82.46:8000';
 
   static Future<bool> sendMessage({
     required String title,
@@ -274,7 +274,7 @@ class WtoApi {
     required String text,
     required String dateTime,
     required String userId,
-    String? imagePath,
+    String? serverImagePath,
     bool deleted = false,
   }) async {
     try {
@@ -289,7 +289,7 @@ class WtoApi {
           'category': category,
           'text': text,
           'dateTime': dateTime,
-          'imagePath': imagePath,
+          'imagePath': serverImagePath,
           'userId': userId,
           'deleted': deleted,
         }),

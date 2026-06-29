@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import '../api/wto_api.dart';
 import '../sync/sync_manager.dart';
 import 'package:uuid/uuid.dart';
+import '../sync/upload_manager.dart';
+import '../sync/download_manager.dart';
 
 class AppDatabase {
   static Database? _db;
@@ -326,7 +328,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 16,
+      version: 17,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -337,6 +339,7 @@ class AppDatabase {
             text TEXT,
             dateTime TEXT,
             imagePath TEXT,
+            serverImagePath TEXT,
             userId TEXT
           )
         ''');
@@ -661,6 +664,13 @@ class AppDatabase {
             );
           } catch (_) {}
         }
+        if (oldVersion < 17) {
+          try {
+            await db.execute(
+              'ALTER TABLE entries ADD COLUMN serverImagePath TEXT',
+            );
+          } catch (_) {}
+        }
       },
     );
   }
@@ -675,6 +685,11 @@ class AppDatabase {
   ) async {
     final db = await database;
     final entryUuid = const Uuid().v4();
+    String? serverImagePath;
+
+    if (imagePath != null && imagePath.isNotEmpty) {
+      serverImagePath = await UploadManager.uploadFile(imagePath);
+    }
     final id = await db.insert('entries', {
       'entry_uuid': entryUuid,
       'number': number,
@@ -682,6 +697,7 @@ class AppDatabase {
       'text': text,
       'dateTime': dateTime,
       'imagePath': imagePath,
+      'serverImagePath': serverImagePath,
       'userId': userId,
     });
 
@@ -700,7 +716,7 @@ class AppDatabase {
       category: category,
       text: text,
       dateTime: dateTime,
-      imagePath: imagePath,
+      serverImagePath: serverImagePath,
       userId: userId,
     );
   }
@@ -753,7 +769,7 @@ class AppDatabase {
         category: entry['category']?.toString() ?? 'WPIS',
         text: entry['text']?.toString() ?? '',
         dateTime: entry['dateTime']?.toString() ?? '',
-        imagePath: entry['imagePath']?.toString(),
+        serverImagePath: entry['serverImagePath']?.toString(),
         userId: entry['userId']?.toString() ?? 'USER_001',
         deleted: true,
       );
@@ -820,7 +836,7 @@ class AppDatabase {
           category: entry['category']?.toString() ?? 'WPIS',
           text: text,
           dateTime: entry['dateTime']?.toString() ?? '',
-          imagePath: entry['imagePath']?.toString(),
+          serverImagePath: entry['serverImagePath']?.toString(),
           userId: entry['userId']?.toString() ?? 'USER_001',
         );
       }
@@ -1874,6 +1890,7 @@ class AppDatabase {
     required String text,
     required String dateTime,
     String? imagePath,
+    String? serverImagePath,
     required String userId,
   }) async {
     final db = await database;
@@ -1894,6 +1911,7 @@ class AppDatabase {
           'text': text,
           'dateTime': dateTime,
           'imagePath': imagePath,
+          'serverImagePath': serverImagePath,
           'userId': userId,
         },
         where: 'entry_uuid = ?',
@@ -1911,6 +1929,7 @@ class AppDatabase {
         'text': text,
         'dateTime': dateTime,
         'imagePath': imagePath,
+        'serverImagePath': serverImagePath,
         'userId': userId,
       },
       conflictAlgorithm: ConflictAlgorithm.ignore,
@@ -1929,7 +1948,14 @@ class AppDatabase {
         final category = item['category']?.toString() ?? 'WPIS';
         final text = item['text']?.toString() ?? '';
         final dateTime = item['dateTime']?.toString() ?? '';
-        final imagePath = item['imagePath']?.toString();
+        final serverImagePath = item['imagePath']?.toString();
+
+        String? localImagePath;
+
+        if (serverImagePath != null && serverImagePath.isNotEmpty) {
+          localImagePath =
+              await DownloadManager.downloadFile(serverImagePath);
+        }
         final userId = item['userId']?.toString() ?? 'USER_001';
         final deleted = item['deleted']?.toString() == '1' ||
             item['deleted'] == true;
@@ -1952,7 +1978,8 @@ class AppDatabase {
           category: category,
           text: text,
           dateTime: dateTime,
-          imagePath: imagePath,
+          imagePath: localImagePath,
+          serverImagePath: serverImagePath,
           userId: userId,
         );
       }
