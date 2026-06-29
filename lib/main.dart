@@ -724,13 +724,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     const SizedBox(height: 12),
 
                     if (selectedImage != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                      Container(
+                        height: 160,
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        clipBehavior: Clip.antiAlias,
                         child: Image.file(
                           selectedImage!,
-                          height: 160,
-                          width: double.infinity,
                           fit: BoxFit.cover,
+                          cacheWidth: 600,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Text('Nie udało się wczytać zdjęcia'),
+                            );
+                          },
                         ),
                       ),
 
@@ -740,6 +751,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       onPressed: () async {
                         final picked = await ImagePicker().pickImage(
                           source: ImageSource.gallery,
+                          imageQuality: 60,
+                          maxWidth: 1600,
                         );
 
                         if (picked == null) return;
@@ -794,6 +807,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final text = result['text'] ?? '';
     final level = result['level'] ?? 'OGŁOSZENIE';
     final imagePath = result['imagePath'] ?? '';
+    if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Zapisywanie komunikatu...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     final sent = await AppDatabase.insertMessage(
       title,
       text,
