@@ -8,7 +8,7 @@ import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
 import 'sync/sync_manager.dart';
 import 'sync/server_backup_service.dart';
-import 'sync/auto_sync_service.dart';
+//import 'sync/auto_sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -4810,34 +4810,6 @@ class _SyncDiagnosticsScreenState extends State<SyncDiagnosticsScreen> {
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.autorenew),
-                  label: const Text('Synchronizuj teraz'),
-                  onPressed: () async {
-                    try {
-                      await AutoSyncService.runOnce();
-                      await loadQueue();
-
-                      if (!context.mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Synchronizacja zakończona'),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Błąd synchronizacji: $e'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-
-                const SizedBox(height: 12),
 
                 if (queue.isEmpty)
                   Card(
@@ -5746,11 +5718,6 @@ class _SyncHistoryScreenState extends State<SyncHistoryScreen> {
           title: 'Kolejka offline',
           value: queue.length.toString(),
           icon: Icons.queue,
-        ),
-        statCard(
-          title: 'Auto-sync',
-          value: AutoSyncService.isRunning ? 'Włączony' : 'Wyłączony',
-          icon: Icons.autorenew,
         ),
       ],
     );
