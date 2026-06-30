@@ -258,8 +258,10 @@ class WtoApi {
     required String number,
   }) async {
     try {
+      final encodedNumber = Uri.encodeComponent(number);
+
       final response = await http.delete(
-        Uri.parse('$serverUrl/tasks/$year/$number'),
+        Uri.parse('$serverUrl/tasks/$year/$encodedNumber'),
       ).timeout(const Duration(seconds: 5));
 
       return response.statusCode >= 200 && response.statusCode < 300;
