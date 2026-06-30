@@ -26,8 +26,6 @@ Future<void> main() async {
   void main() {
     WidgetsFlutterBinding.ensureInitialized();
 
-    AutoSyncService.start();
-
     runApp(const WTOApp());
   }
 }
