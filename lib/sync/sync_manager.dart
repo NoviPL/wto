@@ -11,6 +11,8 @@ import 'sync_message_images.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
+    await SyncQueue.processPending();
+
     await syncUsersFromServer();
     await syncYearsFromServer();
     await syncTasksFromServer();
@@ -34,6 +36,35 @@ class SyncManager {
     await SyncTasks.syncFromServer();
   }
 
+  static Future<void> syncEntriesFromServer() async {
+    await SyncQueue.processPending();
+    await SyncEntries.syncFromServer();
+  }
+
+  static Future<void> syncCarsFromServer() async {
+    await SyncQueue.processPending();
+    await SyncCars.syncFromServer();
+  }
+
+  static Future<void> syncCarTermsFromServer() async {
+    await SyncCarTerms.syncFromServer();
+  }
+
+  static Future<void> syncCarNotesFromServer() async {
+    await SyncQueue.processPending();
+    await SyncCarNotes.syncFromServer();
+  }
+
+  static Future<void> syncMessagesFromServer() async {
+    await SyncQueue.processPending();
+    await SyncMessages.syncFromServer();
+  }
+
+  static Future<void> syncMessageImagesFromServer() async {
+    await SyncQueue.processPending();
+    await SyncMessageImages.syncFromServer();
+  }
+
   static Future<bool> sendUser({
     required String id,
     required String name,
@@ -47,12 +78,19 @@ class SyncManager {
         role: role,
         pin: pin,
       );
+    }, type: 'user', payload: {
+      'id': id,
+      'name': name,
+      'role': role,
+      'pin': pin,
     });
   }
 
   static Future<bool> deleteUser(String id) async {
     return SyncQueue.run(() {
       return SyncUsers.deleteUser(id);
+    }, type: 'delete_user', payload: {
+      'id': id,
     });
   }
 
@@ -60,9 +98,9 @@ class SyncManager {
     required int year,
   }) async {
     return SyncQueue.run(() {
-      return SyncYears.sendYear(
-        year: year,
-      );
+      return SyncYears.sendYear(year: year);
+    }, type: 'year', payload: {
+      'year': year,
     });
   }
 
@@ -75,6 +113,9 @@ class SyncManager {
         year: year,
         number: number,
       );
+    }, type: 'task', payload: {
+      'year': year,
+      'number': number,
     });
   }
 
@@ -87,10 +128,10 @@ class SyncManager {
         year: year,
         number: number,
       );
+    }, type: 'delete_task', payload: {
+      'year': year,
+      'number': number,
     });
-  }
-  static Future<void> syncEntriesFromServer() async {
-    await SyncEntries.syncFromServer();
   }
 
   static Future<bool> sendEntry({
@@ -114,10 +155,16 @@ class SyncManager {
         userId: userId,
         deleted: deleted,
       );
+    }, type: 'entry', payload: {
+      'entryUuid': entryUuid,
+      'number': number,
+      'category': category,
+      'text': text,
+      'dateTime': dateTime,
+      'userId': userId,
+      'serverImagePath': serverImagePath,
+      'deleted': deleted,
     });
-  }
-  static Future<void> syncCarsFromServer() async {
-    await SyncCars.syncFromServer();
   }
 
   static Future<bool> sendCar({
@@ -137,10 +184,14 @@ class SyncManager {
         colorIndex: colorIndex,
         deleted: deleted,
       );
+    }, type: 'car', payload: {
+      'carUuid': carUuid,
+      'name': name,
+      'plate': plate,
+      'createdAt': createdAt,
+      'colorIndex': colorIndex,
+      'deleted': deleted,
     });
-  }
-  static Future<void> syncCarTermsFromServer() async {
-    await SyncCarTerms.syncFromServer();
   }
 
   static Future<bool> sendCarTerms({
@@ -158,10 +209,13 @@ class SyncManager {
         btDate: btDate,
         deleted: deleted,
       );
+    }, type: 'car_terms', payload: {
+      'carUuid': carUuid,
+      'ocDate': ocDate,
+      'acDate': acDate,
+      'btDate': btDate,
+      'deleted': deleted,
     });
-  }
-  static Future<void> syncCarNotesFromServer() async {
-    await SyncCarNotes.syncFromServer();
   }
 
   static Future<bool> sendCarNote({
@@ -185,10 +239,16 @@ class SyncManager {
         serverImagePath: serverImagePath,
         deleted: deleted,
       );
+    }, type: 'car_note', payload: {
+      'carNoteUuid': carNoteUuid,
+      'carUuid': carUuid,
+      'section': section,
+      'text': text,
+      'dateTime': dateTime,
+      'userId': userId,
+      'serverImagePath': serverImagePath,
+      'deleted': deleted,
     });
-  }
-  static Future<void> syncMessagesFromServer() async {
-    await SyncMessages.syncFromServer();
   }
 
   static Future<bool> sendMessage({
@@ -212,6 +272,15 @@ class SyncManager {
         serverImagePath: serverImagePath,
         deleted: deleted,
       );
+    }, type: 'message', payload: {
+      'messageUuid': messageUuid,
+      'title': title,
+      'text': text,
+      'level': level,
+      'dateTime': dateTime,
+      'userId': userId,
+      'serverImagePath': serverImagePath,
+      'deleted': deleted,
     });
   }
 
@@ -226,10 +295,11 @@ class SyncManager {
         userId: userId,
         readAt: readAt,
       );
+    }, type: 'message_read', payload: {
+      'messageUuid': messageUuid,
+      'userId': userId,
+      'readAt': readAt,
     });
-  }
-  static Future<void> syncMessageImagesFromServer() async {
-    await SyncMessageImages.syncFromServer();
   }
 
   static Future<bool> sendMessageImage({
@@ -247,6 +317,12 @@ class SyncManager {
         caption: caption,
         deleted: deleted,
       );
+    }, type: 'message_image', payload: {
+      'imageUuid': imageUuid,
+      'messageUuid': messageUuid,
+      'serverImagePath': serverImagePath,
+      'caption': caption,
+      'deleted': deleted,
     });
   }
 }

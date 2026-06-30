@@ -8,6 +8,7 @@ import '../sync/sync_manager.dart';
 import 'package:uuid/uuid.dart';
 import '../sync/upload_manager.dart';
 import '../sync/download_manager.dart';
+import 'dart:convert';
 
 class AppDatabase {
   static Database? _db;
@@ -485,7 +486,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 21,
+      version: 22,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -585,6 +586,17 @@ class AppDatabase {
             serverImagePath TEXT,
             caption TEXT,
             deleted INTEGER DEFAULT 0
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE sync_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            createdAt TEXT NOT NULL,
+            retryCount INTEGER DEFAULT 0,
+            lastError TEXT
           )
         ''');
 
@@ -921,6 +933,18 @@ class AppDatabase {
               serverImagePath TEXT,
               caption TEXT,
               deleted INTEGER DEFAULT 0
+            )
+          ''');
+        }
+        if (oldVersion < 22) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS sync_queue (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              type TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              createdAt TEXT NOT NULL,
+              retryCount INTEGER DEFAULT 0,
+              lastError TEXT
             )
           ''');
         }
@@ -2065,6 +2089,57 @@ class AppDatabase {
     return isAdmin || role == 'ADMIN' || role == 'EKSPERT';
   }
 
+  static Future<void> addSyncQueueItem({
+    required String type,
+    required Map<String, dynamic> payload,
+  }) async {
+    final db = await database;
+
+    await db.insert('sync_queue', {
+      'type': type,
+      'payload': jsonEncode(payload),
+      'createdAt': DateTime.now().toString(),
+      'retryCount': 0,
+      'lastError': null,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getSyncQueueItems() async {
+    final db = await database;
+
+    return db.query(
+      'sync_queue',
+      orderBy: 'id ASC',
+    );
+  }
+
+  static Future<void> deleteSyncQueueItem(int id) async {
+    final db = await database;
+
+    await db.delete(
+      'sync_queue',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> markSyncQueueItemFailed(
+    int id,
+    String error,
+  ) async {
+    final db = await database;
+
+    await db.rawUpdate(
+      '''
+      UPDATE sync_queue
+      SET retryCount = retryCount + 1,
+          lastError = ?
+      WHERE id = ?
+      ''',
+      [error, id],
+    );
+  }
+
   static Future<void> addChangeLog({
     required String entityType,
     required String entityId,
@@ -2818,5 +2893,11 @@ class AppDatabase {
     } catch (e) {
       print('Błąd synchronizacji car_notes: $e');
     }
+  }
+  static Future<bool> processSyncQueueItem({
+    required String type,
+    required Map<String, dynamic> payload,
+  }) async {
+    return false;
   }
 }
