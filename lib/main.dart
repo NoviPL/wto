@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
 import 'sync/sync_manager.dart';
+import 'sync/server_backup_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -5134,12 +5135,196 @@ class BackupsScreen extends StatefulWidget {
 
 class _BackupsScreenState extends State<BackupsScreen> {
   List<FileSystemEntity> backups = [];
+  List<ServerBackupItem> serverBackups = [];
+
+  bool loadingServerBackups = false;
+  bool uploadingBackup = false;
 
   @override
   void initState() {
     super.initState();
     loadBackups();
+    loadServerBackups();
   }
+
+   
+
+  Future<void> loadServerBackups() async {
+    setState(() {
+      loadingServerBackups = true;
+    });
+
+    try {
+      final result = await ServerBackupService.getServerBackups();
+
+      setState(() {
+        serverBackups = result;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Błąd pobierania backupów z serwera: $e'),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        loadingServerBackups = false;
+      });
+    }
+  }
+
+  Future<void> uploadLocalBackupToServer(File file) async {
+    setState(() {
+      uploadingBackup = true;
+    });
+
+    try {
+      await ServerBackupService.uploadBackup(file);
+      await loadServerBackups();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Backup wysłany na serwer'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Błąd wysyłania backupu: $e'),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        uploadingBackup = false;
+      });
+    }
+  }
+
+  Future<void> downloadServerBackup(ServerBackupItem item) async {
+    try {
+      final file = await ServerBackupService.downloadBackup(item.filename);
+
+      await loadBackups();
+
+      if (!mounted) return;
+
+      final restoreNow = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Backup pobrany'),
+          content: Text(
+            'Backup został pobrany z serwera.\n\n${file.path}\n\nCzy chcesz go teraz przywrócić?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Nie teraz'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Przywróć'),
+            ),
+          ],
+        ),
+      );
+
+      if (restoreNow != true) return;
+
+      await runWithProgressDialog<void>(
+        context: context,
+        title: 'Przywracanie backupu',
+        message: 'Trwa przywracanie backupu z serwera...',
+        action: (progress) {
+          return AppDatabase.restoreBackupFromPath(
+            file.path,
+            onProgress: (value) {
+              progress.value = value;
+            },
+          );
+        },
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Backup przywrócony'),
+          content: const Text(
+            'Dane zostały przywrócone.\n\nZamknij aplikację całkowicie i uruchom ją ponownie.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Błąd pobierania/przywracania backupu: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> deleteServerBackup(ServerBackupItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Usuń backup z serwera'),
+        content: Text(item.filename),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ServerBackupService.deleteServerBackup(item.filename);
+      await loadServerBackups();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Backup usunięty z serwera'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Błąd usuwania backupu: $e'),
+        ),
+      );
+    }
+  }
+
 
   Future<void> loadBackups() async {
     final list = await AppDatabase.getBackupFiles();
@@ -5157,118 +5342,182 @@ class _BackupsScreenState extends State<BackupsScreen> {
       appBar: AppBar(
         title: const Text('Backupy'),
       ),
-      body: backups.isEmpty
-          ? const Center(
-              child: Text('Brak backupów'),
+      body: ListView(
+        children: [
+          if (backups.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: Text('Brak backupów lokalnych'),
+              ),
             )
-          : ListView.builder(
-              itemCount: backups.length,
-              itemBuilder: (context, index) {
-                final file = backups[index];
+          else
+            ...backups.map((file) {
+              final name = file.path.split('/').last;
 
-                final name = file.path.split('/').last;
+              return ListTile(
+                leading: const Icon(Icons.archive),
+                title: Text(name),
+                subtitle: Text(file.path),
 
-                return ListTile(
-                  leading: const Icon(Icons.archive),
-                  title: Text(name),
-                  subtitle: Text(file.path),
+                // TO JEST PUNKT 7
+                trailing: IconButton(
+                  icon: const Icon(Icons.cloud_upload),
+                  tooltip: 'Wyślij na serwer',
+                  onPressed: uploadingBackup
+                      ? null
+                      : () => uploadLocalBackupToServer(File(file.path)),
+                ),
 
-                  onTap: () async {
-                    final confirm = await showDialog<bool>(
+                onTap: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Przywróć backup'),
+                      content: Text(
+                        'Przywrócić ten backup?\n\n$name\n\nAktualne dane zostaną podmienione.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Anuluj'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Przywróć'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm != true) return;
+
+                  try {
+                    await runWithProgressDialog<void>(
+                      context: context,
+                      title: 'Przywracanie backupu',
+                      message: 'Trwa przywracanie backupu...',
+                      action: (progress) {
+                        return AppDatabase.restoreBackupFromPath(
+                          file.path,
+                          onProgress: (value) {
+                            progress.value = value;
+                          },
+                        );
+                      },
+                    );
+
+                    if (!context.mounted) return;
+
+                    showDialog(
                       context: context,
                       builder: (_) => AlertDialog(
-                        title: const Text('Przywróć backup'),
-                        content: Text(
-                          'Przywrócić ten backup?\n\n$name\n\nAktualne dane zostaną podmienione.',
+                        title: const Text('Backup przywrócony'),
+                        content: const Text(
+                          'Dane zostały przywrócone.\n\nZamknij aplikację całkowicie i uruchom ją ponownie.',
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Anuluj'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Przywróć'),
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
                           ),
                         ],
                       ),
                     );
+                  } catch (e) {
+                    if (!context.mounted) return;
 
-                    if (confirm != true) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Błąd przywracania: $e'),
+                      ),
+                    );
+                  }
+                },
 
-                    try {
-                      await runWithProgressDialog<void>(
-                        context: context,
-                        title: 'Przywracanie backupu',
-                        message: 'Trwa przywracanie backupu...',
-                        action: (progress) {
-                          return AppDatabase.restoreBackupFromPath(
-                            file.path,
-                            onProgress: (value) {
-                              progress.value = value;
-                            },
-                          );
-                        },
-                      );
-
-                      if (!context.mounted) return;
-
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Backup przywrócony'),
-                          content: const Text(
-                            'Dane zostały przywrócone.\n\nZamknij aplikację całkowicie i uruchom ją ponownie.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK'),
-                            ),
-                          ],
+                onLongPress: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Usuń backup'),
+                      content: Text(name),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Anuluj'),
                         ),
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Błąd przywracania: $e'),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Usuń'),
                         ),
-                      );
+                      ],
+                    ),
+                  );
+
+                  if (confirm != true) return;
+
+                  await AppDatabase.deleteBackup(file.path);
+
+                  await loadBackups();
+                },
+              );
+            }),
+
+          
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.cloud),
+            title: const Text('Backupy na serwerze'),
+            trailing: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: loadServerBackups,
+            ),
+          ),
+
+          if (loadingServerBackups)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (serverBackups.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Brak backupów na serwerze.'),
+            )
+          else
+            ...serverBackups.map((backup) {
+              return ListTile(
+                leading: const Icon(Icons.cloud_done),
+                title: Text(backup.filename),
+                subtitle: Text(
+                  '${(backup.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                ),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (value) async {
+                    if (value == 'download') {
+                      await downloadServerBackup(backup);
+                    }
+
+                    if (value == 'delete') {
+                      await deleteServerBackup(backup);
                     }
                   },
-
-                  onLongPress: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('Usuń backup'),
-                        content: Text(name),
-                        actions: [
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.pop(context, false),
-                            child: const Text('Anuluj'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () =>
-                                Navigator.pop(context, true),
-                            child: const Text('Usuń'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm != true) return;
-
-                    await AppDatabase.deleteBackup(file.path);
-
-                    await loadBackups();
-                  },
-                );
-              },
-            ),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'download',
+                      child: Text('Pobierz'),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Usuń z serwera'),
+                    ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }
