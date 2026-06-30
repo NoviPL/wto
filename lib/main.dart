@@ -721,79 +721,35 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-
                     if (selectedImages.isNotEmpty)
-                      SizedBox(
-                        height: 130,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: selectedImages.length,
-                          itemBuilder: (context, index) {
-                            final image = selectedImages[index];
-
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      image,
-                                      width: 130,
-                                      height: 130,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 400,
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: InkWell(
-                                      onTap: () {
-                                        setDialogState(() {
-                                          selectedImages.removeAt(index);
-                                        });
-                                      },
-                                      child: Container(
-                                        decoration: const BoxDecoration(
-                                          color: Colors.black54,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        padding: const EdgeInsets.all(4),
-                                        child: const Icon(
-                                          Icons.close,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Wybrano zdjęć: ${selectedImages.length}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-
                     const SizedBox(height: 8),
 
                     OutlinedButton.icon(
                       onPressed: () async {
                         final picked = await ImagePicker().pickMultiImage(
-                          imageQuality: 60,
-                          maxWidth: 1600,
+                          imageQuality: 50,
+                          maxWidth: 1200,
                         );
 
                         if (picked.isEmpty) return;
 
                         setDialogState(() {
-                          selectedImages.addAll(
-                            picked.map((image) => File(image.path)),
-                          );
+                          selectedImages = picked
+                              .map((image) => File(image.path))
+                              .toList();
                         });
                       },
-                      icon: const Icon(Icons.photo),
-                      label: const Text('Dodaj zdjęcie'),
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text('Dodaj zdjęcia'),
                     ),
                   ],
                 ),
