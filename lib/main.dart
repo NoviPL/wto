@@ -1216,6 +1216,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ),
                   ),
                   child: ListTile(
+                    minLeadingWidth: 56,
                     contentPadding: const EdgeInsets.all(14),
                     leading: FutureBuilder<String?>(
                       future: AppDatabase.getFirstMessageImagePath(
@@ -1254,13 +1255,27 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         );
                       },
                     ),
+                    title: Text(
+                      title.isEmpty ? '(bez tytułu)' : title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: isRead
+                            ? FontWeight.bold
+                            : FontWeight.w900,
+                      ),
+                    ),
+
                     subtitle: Text(
                       isRead
                           ? '$level • $dateTime'
                           : 'NIEPRZECZYTANE • $level • $dateTime',
                     ),
+
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () => openMessage(message),
+                    
                     onLongPress: () {
                       showModalBottomSheet(
                         context: context,
