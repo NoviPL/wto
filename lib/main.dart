@@ -817,6 +817,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     final sent = saveResult['sent'] == true;
     final messageUuid = saveResult['messageUuid']?.toString() ?? '';
+    final queueCount = await AppDatabase.getSyncQueueCount();
 
     if (messageUuid.isNotEmpty) {
       for (int i = 0; i < imagePaths.length; i++) {
@@ -834,8 +835,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
       SnackBar(
         content: Text(
           sent
-              ? 'Komunikat zapisany i wysłany na serwer.'
-              : 'Komunikat zapisany TYLKO lokalnie. Nie wysłano na serwer.',
+              ? 'Komunikat zapisany i wysłany na serwer. Kolejka: $queueCount'
+              : 'Komunikat zapisany lokalnie. Kolejka: $queueCount',
         ),
       ),
     );

@@ -2898,6 +2898,132 @@ class AppDatabase {
     required String type,
     required Map<String, dynamic> payload,
   }) async {
-    return false;
+    switch (type) {
+      case 'user':
+        return WtoApi.sendUser(
+          id: payload['id']?.toString() ?? '',
+          name: payload['name']?.toString() ?? '',
+          role: payload['role']?.toString() ?? 'USER',
+          pin: payload['pin']?.toString() ?? '0000',
+        );
+
+      case 'delete_user':
+        return WtoApi.deleteUser(
+          payload['id']?.toString() ?? '',
+        );
+
+      case 'year':
+        return WtoApi.sendYear(
+          year: int.tryParse(payload['year']?.toString() ?? '') ?? 0,
+        );
+
+      case 'task':
+        return WtoApi.sendTask(
+          year: int.tryParse(payload['year']?.toString() ?? '') ?? 0,
+          number: payload['number']?.toString() ?? '',
+        );
+
+      case 'delete_task':
+        return WtoApi.deleteTask(
+          year: int.tryParse(payload['year']?.toString() ?? '') ?? 0,
+          number: payload['number']?.toString() ?? '',
+        );
+
+      case 'entry':
+        return WtoApi.sendEntry(
+          entryUuid: payload['entryUuid']?.toString() ?? '',
+          number: payload['number']?.toString() ?? '',
+          category: payload['category']?.toString() ?? 'WPIS',
+          text: payload['text']?.toString() ?? '',
+          dateTime: payload['dateTime']?.toString() ?? '',
+          userId: payload['userId']?.toString() ?? 'USER_001',
+          serverImagePath: payload['serverImagePath']?.toString(),
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'car':
+        return WtoApi.sendCar(
+          carUuid: payload['carUuid']?.toString() ?? '',
+          name: payload['name']?.toString() ?? '',
+          plate: payload['plate']?.toString() ?? '',
+          createdAt: payload['createdAt']?.toString() ?? '',
+          colorIndex:
+              int.tryParse(payload['colorIndex']?.toString() ?? '0') ?? 0,
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'car_terms':
+        return WtoApi.sendCarTerms(
+          carUuid: payload['carUuid']?.toString() ?? '',
+          ocDate: payload['ocDate']?.toString(),
+          acDate: payload['acDate']?.toString(),
+          btDate: payload['btDate']?.toString(),
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'car_note':
+        return WtoApi.sendCarNote(
+          carNoteUuid: payload['carNoteUuid']?.toString() ?? '',
+          carUuid: payload['carUuid']?.toString() ?? '',
+          section: payload['section']?.toString() ?? '',
+          text: payload['text']?.toString() ?? '',
+          dateTime: payload['dateTime']?.toString() ?? '',
+          userId: payload['userId']?.toString() ?? 'USER_001',
+          serverImagePath: payload['serverImagePath']?.toString(),
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'message':
+        return WtoApi.sendMessage(
+          messageUuid: payload['messageUuid']?.toString() ?? '',
+          title: payload['title']?.toString() ?? '',
+          text: payload['text']?.toString() ?? '',
+          level: payload['level']?.toString() ?? 'OGŁOSZENIE',
+          dateTime: payload['dateTime']?.toString() ?? '',
+          userId: payload['userId']?.toString() ?? 'USER_001',
+          serverImagePath: payload['serverImagePath']?.toString(),
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'message_image':
+        return WtoApi.sendMessageImage(
+          imageUuid: payload['imageUuid']?.toString() ?? '',
+          messageUuid: payload['messageUuid']?.toString() ?? '',
+          serverImagePath: payload['serverImagePath']?.toString(),
+          caption: payload['caption']?.toString() ?? '',
+          deleted: payload['deleted'] == true ||
+              payload['deleted'] == 1 ||
+              payload['deleted']?.toString() == '1',
+        );
+
+      case 'message_read':
+        return WtoApi.markMessageRead(
+          messageUuid: payload['messageUuid']?.toString() ?? '',
+          userId: payload['userId']?.toString() ?? '',
+          readAt: payload['readAt']?.toString() ?? '',
+        );
+
+      default:
+        return false;
+    }
+  }
+  static Future<int> getSyncQueueCount() async {
+    final db = await database;
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM sync_queue',
+    );
+
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }
