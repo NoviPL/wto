@@ -30,6 +30,7 @@ class WTOApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'WTO',
       theme: ThemeData(
         colorSchemeSeed: Colors.blue,
@@ -517,6 +518,44 @@ class _YearsScreenState extends State<YearsScreen> {
     await loadYears();
   }
 
+  Future<void> _deleteYear(int year) async {
+    final admin = await AppDatabase.isCurrentUserAdmin();
+
+    if (!admin) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tylko administrator może usuwać lata.'),
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Usuń rok'),
+        content: Text('Czy na pewno usunąć rok $year?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.deleteYear(year);
+    await loadYears();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -524,6 +563,24 @@ class _YearsScreenState extends State<YearsScreen> {
       appBar: AppBar(
         title: const Text('Zadania'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Odśwież',
+            onPressed: () async {
+              await loadYears();
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Lata odświeżone'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: canAddYears
           ? FloatingActionButton.extended(
@@ -562,6 +619,7 @@ class _YearsScreenState extends State<YearsScreen> {
                         ),
                       );
                     },
+                    onLongPress: () => _deleteYear(year),
                     child: Padding(
                       padding: const EdgeInsets.all(18),
                       child: Row(
@@ -2185,6 +2243,24 @@ class _NumbersScreenState extends State<NumbersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Rok ${widget.year}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Odśwież',
+            onPressed: () async {
+              await loadTasks();
+
+              if (!mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Zadania odświeżone'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddTaskDialog,

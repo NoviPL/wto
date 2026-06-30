@@ -1152,6 +1152,10 @@ class AppDatabase {
     );
   }
   static Future<void> deleteTask(int id) async {
+    final expert = await isCurrentUserExpert();
+
+    if (!expert) return;
+
     final db = await database;
 
     final old = await db.query(
@@ -1163,8 +1167,9 @@ class AppDatabase {
 
     if (old.isEmpty) return;
 
-    final year = old.first['year'] as int;
-    final number = old.first['number'].toString();
+    final task = old.first;
+    final year = task['year'] as int;
+    final number = task['number']?.toString() ?? '';
 
     await db.delete(
       'tasks',
@@ -1179,9 +1184,31 @@ class AppDatabase {
 
     await addChangeLog(
       entityType: 'Zadanie',
-      entityId: id.toString(),
+      entityId: number,
       action: 'Usunięcie',
-      oldValue: '$number | $year',
+      oldValue: '$year / $number',
+      newValue: '',
+    );
+  }
+
+  static Future<void> deleteYear(int year) async {
+    final admin = await isCurrentUserAdmin();
+
+    if (!admin) return;
+
+    final db = await database;
+
+    await db.delete(
+      'years',
+      where: 'year = ?',
+      whereArgs: [year],
+    );
+
+    await addChangeLog(
+      entityType: 'Rok',
+      entityId: year.toString(),
+      action: 'Usunięcie',
+      oldValue: year.toString(),
       newValue: '',
     );
   }
