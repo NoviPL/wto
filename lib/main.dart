@@ -620,6 +620,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> loadMessages() async {
     await SyncManager.syncMessagesFromServer();
+    await SyncManager.syncMessageImagesFromServer();
 
     final data = await AppDatabase.getMessages();
     final important = await AppDatabase.canCurrentUserAddImportantMessages();
@@ -1027,13 +1028,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
     final title = message['title']?.toString() ?? '';
     final text = message['text']?.toString() ?? '';
-    final imagePath = message['imagePath']?.toString() ?? '';
     final level = message['level']?.toString() ?? 'OGŁOSZENIE';
     final dateTime = message['dateTime']?.toString() ?? '';
     final userId = message['userId']?.toString() ?? '';
     final userName = await userNameById(userId);
     final readUsers =
         await AppDatabase.getMessageReadUserNames(message['id'] as int);
+    final messageImages = await AppDatabase.getMessageImages(
+      message['message_uuid']?.toString() ?? '',
+    );
     final color = messageColor(level);
 
     showDialog(
@@ -1073,33 +1076,50 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 text,
                 style: const TextStyle(fontSize: 16),
               ),
-              if (imagePath.isNotEmpty) ...[
+              if (messageImages.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FullScreenSingleImage(
-                          imagePath: imagePath,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(messageImages.length, (index) {
+                    final photo = messageImages[index];
+                    final imagePath = photo['imagePath']?.toString() ?? '';
+
+                    if (imagePath.isEmpty) return const SizedBox.shrink();
+
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImage(
+                              photos: messageImages,
+                              initialIndex: index,
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          File(imagePath),
+                          width: 82,
+                          height: 82,
+                          fit: BoxFit.cover,
+                          cacheWidth: 300,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 82,
+                              height: 82,
+                              alignment: Alignment.center,
+                              color: Colors.grey.shade300,
+                              child: const Icon(Icons.broken_image),
+                            );
+                          },
                         ),
                       ),
                     );
-                  },
-                  child: SizedBox(
-                    height: 220,
-                    width: double.infinity,
-                    child: Image.file(
-                      File(imagePath),
-                      fit: BoxFit.cover,
-                      cacheWidth: 900,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Text('Nie udało się wyświetlić zdjęcia'),
-                        );
-                      },
-                    ),
-                  ),
+                  }),
                 ),
               ],
               const SizedBox(height: 18),
@@ -1183,8 +1203,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final dateTime = message['dateTime']?.toString() ?? '';
                 final color = messageColor(level);
                 final isRead = message['isRead'] == 1;
-                final imagePath = message['imagePath']?.toString() ?? '';
-                final hasImage = imagePath.isNotEmpty;
 
                 return Card(
                   color: isRead ? Colors.white : color.withOpacity(0.10),
@@ -1199,8 +1217,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(14),
-                    leading: hasImage
-                        ? ClipRRect(
+                    leading: FutureBuilder<String?>(
+                      future: AppDatabase.getFirstMessageImagePath(
+                        message['message_uuid']?.toString() ?? '',
+                      ),
+                      builder: (context, snapshot) {
+                        final imagePath = snapshot.data;
+
+                        if (imagePath != null && imagePath.isNotEmpty) {
+                          return ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.file(
                               File(imagePath),
@@ -1217,20 +1242,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 );
                               },
                             ),
-                          )
-                        : CircleAvatar(
-                            backgroundColor: color,
-                            child: Icon(
-                              isRead ? Icons.mark_email_read : messageIcon(level),
-                              color: Colors.white,
-                            ),
+                          );
+                        }
+
+                        return CircleAvatar(
+                          backgroundColor: color,
+                          child: Icon(
+                            isRead ? Icons.mark_email_read : messageIcon(level),
+                            color: Colors.white,
                           ),
-                    title: Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: isRead ? FontWeight.bold : FontWeight.w900,
-                      ),
+                        );
+                      },
                     ),
                     subtitle: Text(
                       isRead
