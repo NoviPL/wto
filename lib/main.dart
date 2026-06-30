@@ -821,7 +821,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       level,
       time,
       currentUserId,
-      imagePath: imagePath != null && imagePath.isNotEmpty ? imagePath : null,
+      imagePath: imagePath.isNotEmpty ? imagePath : null,
     );
 
     if (!mounted) return;

@@ -1264,11 +1264,27 @@ class AppDatabase {
       return;
     }
 
+    final existing = await db.query(
+      'messages',
+      where: 'message_uuid = ?',
+      whereArgs: [messageUuid],
+      limit: 1,
+    );
+
     String? localImagePath;
 
     if (serverImagePath != null && serverImagePath.isNotEmpty) {
       localImagePath = await DownloadManager.downloadFile(serverImagePath);
     }
+
+    final oldImagePath = existing.isNotEmpty
+        ? existing.first['imagePath']?.toString()
+        : null;
+
+    final finalImagePath =
+        localImagePath != null && localImagePath.isNotEmpty
+            ? localImagePath
+            : oldImagePath;
 
     await db.insert(
       'messages',
@@ -1279,7 +1295,7 @@ class AppDatabase {
         'level': level,
         'dateTime': dateTime,
         'userId': userId,
-        'imagePath': localImagePath,
+        'imagePath': finalImagePath,
         'serverImagePath': serverImagePath,
         'deleted': 0,
       },
