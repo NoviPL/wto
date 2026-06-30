@@ -8,6 +8,7 @@ import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
 import 'sync/sync_manager.dart';
 import 'sync/server_backup_service.dart';
+import 'sync/auto_sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +23,13 @@ Future<void> main() async {
         user['name']?.toString() ?? 'Użytkownik 1';
   }
 
-  runApp(const WTOApp());
+  void main() {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    AutoSyncService.start();
+
+    runApp(const WTOApp());
+  }
 }
 
 class WTOApp extends StatelessWidget {
@@ -4802,11 +4809,42 @@ class _SyncDiagnosticsScreenState extends State<SyncDiagnosticsScreen> {
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : queue.isEmpty
-              ? Center(
-                  child: Card(
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.autorenew),
+                  label: const Text('Synchronizuj teraz'),
+                  onPressed: () async {
+                    try {
+                      await AutoSyncService.runOnce();
+                      await loadQueue();
+
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Synchronizacja zakończona'),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Błąd synchronizacji: $e'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                if (queue.isEmpty)
+                  Card(
                     elevation: 4,
-                    margin: const EdgeInsets.all(24),
+                    margin: const EdgeInsets.all(12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -4828,36 +4866,37 @@ class _SyncDiagnosticsScreenState extends State<SyncDiagnosticsScreen> {
                         ],
                       ),
                     ),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(12),
-                  children: [
-                    Card(
-                      color: Colors.orange.shade50,
-                      elevation: 3,
-                      margin: const EdgeInsets.only(bottom: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  )
+                else ...[
+                  Card(
+                    color: Colors.orange.shade50,
+                    elevation: 3,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange.shade800,
+                        child: const Icon(
+                          Icons.pending_actions,
+                          color: Colors.white,
+                        ),
                       ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.orange.shade800,
-                          child: const Icon(Icons.pending_actions, color: Colors.white),
-                        ),
-                        title: Text(
-                          'Oczekujące operacje: $count',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: const Text(
-                          'Te operacje zostaną wysłane po odzyskaniu połączenia z serwerem.',
-                        ),
+                      title: Text(
+                        'Oczekujące operacje: $count',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'Te operacje zostaną wysłane po odzyskaniu połączenia z serwerem.',
                       ),
                     ),
-                    ...queue.map(queueTile),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+                  ),
+                  ...queue.map(queueTile),
+                  const SizedBox(height: 80),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -4955,6 +4994,19 @@ class AdminPanelScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const SyncDiagnosticsScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Historia synchronizacji',
+            icon: Icons.manage_history,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SyncHistoryScreen(),
                 ),
               );
             },
@@ -5518,6 +5570,272 @@ class _BackupsScreenState extends State<BackupsScreen> {
             }),
         ],
       ),
+    );
+  }
+}
+class SyncHistoryScreen extends StatefulWidget {
+  const SyncHistoryScreen({super.key});
+
+  @override
+  State<SyncHistoryScreen> createState() => _SyncHistoryScreenState();
+}
+
+class _SyncHistoryScreenState extends State<SyncHistoryScreen> {
+  List<Map<String, dynamic>> history = [];
+  List<Map<String, dynamic>> queue = [];
+
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    final historyResult = await AppDatabase.getSyncHistory();
+    final queueResult = await AppDatabase.getSyncQueueItems();
+
+    if (!mounted) return;
+
+    setState(() {
+      history = historyResult;
+      queue = queueResult;
+      loading = false;
+    });
+  }
+
+  Future<void> clearHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Wyczyść historię synchronizacji'),
+        content: const Text(
+          'Czy na pewno usunąć całą lokalną historię synchronizacji?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Anuluj'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Wyczyść'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await AppDatabase.clearSyncHistory();
+    await loadData();
+  }
+
+  String formatDate(String value) {
+    final date = DateTime.tryParse(value);
+    if (date == null) return value;
+
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year} '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}:'
+        '${date.second.toString().padLeft(2, '0')}';
+  }
+
+  int get successCount {
+    return history.where((item) {
+      final status = item['status']?.toString() ?? '';
+      return status == 'OK' || status == 'SUKCES';
+    }).length;
+  }
+
+  int get errorCount {
+    return history.where((item) {
+      final status = item['status']?.toString() ?? '';
+      return status == 'BŁĄD';
+    }).length;
+  }
+
+  String get lastSync {
+    if (history.isEmpty) return 'Brak';
+
+    final value = history.first['dateTime']?.toString() ?? '';
+    return formatDate(value);
+  }
+
+  Color statusColor(String status) {
+    if (status == 'OK' || status == 'SUKCES') return Colors.green;
+    if (status == 'BŁĄD') return Colors.red;
+    if (status == 'START') return Colors.orange;
+    return Colors.grey;
+  }
+
+  IconData statusIcon(String status) {
+    if (status == 'OK' || status == 'SUKCES') return Icons.check_circle;
+    if (status == 'BŁĄD') return Icons.error;
+    if (status == 'START') return Icons.sync;
+    return Icons.info;
+  }
+
+  void showDetails(Map<String, dynamic> item) {
+    final action = item['action']?.toString() ?? '';
+    final status = item['status']?.toString() ?? '';
+    final details = item['details']?.toString() ?? '';
+    final dateTime = item['dateTime']?.toString() ?? '';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(action),
+        content: SingleChildScrollView(
+          child: Text(
+            'Data:\n${formatDate(dateTime)}\n\n'
+            'Status:\n$status\n\n'
+            'Szczegóły:\n${details.isEmpty ? '-' : details}',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Zamknij'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget statCard({
+    required String title,
+    required String value,
+    required IconData icon,
+  }) {
+    return Card(
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildStats() {
+    return Column(
+      children: [
+        statCard(
+          title: 'Ostatnia synchronizacja',
+          value: lastSync,
+          icon: Icons.access_time,
+        ),
+        statCard(
+          title: 'Udane operacje',
+          value: successCount.toString(),
+          icon: Icons.check,
+        ),
+        statCard(
+          title: 'Błędy',
+          value: errorCount.toString(),
+          icon: Icons.warning,
+        ),
+        statCard(
+          title: 'Kolejka offline',
+          value: queue.length.toString(),
+          icon: Icons.queue,
+        ),
+        statCard(
+          title: 'Auto-sync',
+          value: AutoSyncService.isRunning ? 'Włączony' : 'Wyłączony',
+          icon: Icons.autorenew,
+        ),
+      ],
+    );
+  }
+
+  Widget buildHistoryList() {
+    if (history.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: Text('Brak historii synchronizacji.'),
+        ),
+      );
+    }
+
+    return Column(
+      children: history.map((item) {
+        final action = item['action']?.toString() ?? '';
+        final status = item['status']?.toString() ?? '';
+        final details = item['details']?.toString() ?? '';
+        final dateTime = item['dateTime']?.toString() ?? '';
+
+        return Card(
+          child: ListTile(
+            leading: Icon(
+              statusIcon(status),
+              color: statusColor(status),
+            ),
+            title: Text(action),
+            subtitle: Text(
+              '${formatDate(dateTime)}\n$status'
+              '${details.isEmpty ? '' : '\n$details'}',
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+            isThreeLine: true,
+            onTap: () => showDetails(item),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Historia synchronizacji'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: loadData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: clearHistory,
+          ),
+        ],
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: loadData,
+              child: ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  buildStats(),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Ostatnie operacje',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  buildHistoryList(),
+                ],
+              ),
+            ),
     );
   }
 }

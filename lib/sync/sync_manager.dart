@@ -8,20 +8,94 @@ import 'sync_car_terms.dart';
 import 'sync_car_notes.dart';
 import 'sync_messages.dart';
 import 'sync_message_images.dart';
+import '../db/database.dart';
+import 'sync_logger.dart';
 
 class SyncManager {
+  static bool _syncInProgress = false;
   static Future<void> syncAll() async {
-    await SyncQueue.processPending();
+    if (_syncInProgress) return;
 
-    await syncUsersFromServer();
-    await syncYearsFromServer();
-    await syncTasksFromServer();
-    await syncEntriesFromServer();
-    await syncCarsFromServer();
-    await syncCarTermsFromServer();
-    await syncCarNotesFromServer();
-    await syncMessagesFromServer();
-    await syncMessageImagesFromServer();
+    _syncInProgress = true;
+
+    try {
+      await SyncLogger.run(
+        'Pełna synchronizacja',
+        () async {
+          await SyncLogger.run(
+            'Kolejka offline',
+            () async {
+              await SyncQueue.processPending();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja użytkowników',
+            () async {
+              await syncUsersFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja lat',
+            () async {
+              await syncYearsFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja zadań',
+            () async {
+              await syncTasksFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja wpisów',
+            () async {
+              await syncEntriesFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja floty',
+            () async {
+              await syncCarsFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja terminów OC/AC/BT',
+            () async {
+              await syncCarTermsFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja notatek floty',
+            () async {
+              await syncCarNotesFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja komunikatów',
+            () async {
+              await syncMessagesFromServer();
+            },
+          );
+
+          await SyncLogger.run(
+            'Synchronizacja zdjęć komunikatów',
+            () async {
+              await syncMessageImagesFromServer();
+            },
+          );
+        },
+      );
+    } finally {
+      _syncInProgress = false;
+    }
   }
 
   static Future<void> syncUsersFromServer() async {

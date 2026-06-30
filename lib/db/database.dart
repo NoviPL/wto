@@ -12,6 +12,7 @@ import 'dart:convert';
 
 class AppDatabase {
   static Database? _db;
+  static const Uuid _uuid = Uuid();
 
   static Future<Map<String, int>> getCarSectionCounts(int carId) async {
     final db = await database;
@@ -630,6 +631,15 @@ class AppDatabase {
             dateTime TEXT NOT NULL
           )
         ''');
+        await db.execute('''
+          CREATE TABLE sync_history (
+            id TEXT PRIMARY KEY,
+            dateTime TEXT NOT NULL,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL,
+            details TEXT
+          )
+        ''');
 
         await db.insert(
           'users', 
@@ -945,6 +955,15 @@ class AppDatabase {
               createdAt TEXT NOT NULL,
               retryCount INTEGER DEFAULT 0,
               lastError TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS sync_history (
+              id TEXT PRIMARY KEY,
+              dateTime TEXT NOT NULL,
+              action TEXT NOT NULL,
+              status TEXT NOT NULL,
+              details TEXT
             )
           ''');
         }
@@ -3071,5 +3090,68 @@ class AppDatabase {
 
   static Future<void> retrySyncQueueNow() async {
     await SyncManager.syncAll();
+  }
+  static Future<void> addSyncHistory({
+    required String action,
+    required String status,
+    String? details,
+  }) async {
+    final db = await database;
+
+    await db.insert(
+      'sync_history',
+      {
+        'id': _uuid.v4(),
+        'dateTime': DateTime.now().toIso8601String(),
+        'action': action,
+        'status': status,
+        'details': details,
+      },
+    );
+
+    await db.rawDelete('''
+      DELETE FROM sync_history
+      WHERE id NOT IN (
+        SELECT id FROM sync_history
+        ORDER BY dateTime DESC
+        LIMIT 1000
+      )
+    ''');
+
+    if (status == 'OK' || status == 'SUKCES') {
+      await db.insert(
+        'app_settings',
+        {
+          'key': 'lastSuccessSync',
+          'value': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+
+    await db.insert(
+      'app_settings',
+      {
+        'key': 'lastSync',
+        'value': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getSyncHistory() async {
+    final db = await database;
+
+    return db.query(
+      'sync_history',
+      orderBy: 'dateTime DESC',
+      limit: 100,
+    );
+  }
+
+  static Future<void> clearSyncHistory() async {
+    final db = await database;
+
+    await db.delete('sync_history');
   }
 }
