@@ -3060,4 +3060,16 @@ class AppDatabase {
 
     return Sqflite.firstIntValue(result) ?? 0;
   }
+  static Future<List<Map<String, dynamic>>> getSyncQueueDetails() async {
+    final db = await database;
+
+    return db.query(
+      'sync_queue',
+      orderBy: 'id ASC',
+    );
+  }
+
+  static Future<void> retrySyncQueueNow() async {
+    await SyncManager.syncAll();
+  }
 }

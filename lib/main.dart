@@ -4692,6 +4692,175 @@ Future<T> runWithProgressDialog<T>({
   }
 }
 
+class SyncDiagnosticsScreen extends StatefulWidget {
+  const SyncDiagnosticsScreen({super.key});
+
+  @override
+  State<SyncDiagnosticsScreen> createState() => _SyncDiagnosticsScreenState();
+}
+
+class _SyncDiagnosticsScreenState extends State<SyncDiagnosticsScreen> {
+  List<Map<String, dynamic>> queue = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadQueue();
+  }
+
+  Future<void> loadQueue() async {
+    final data = await AppDatabase.getSyncQueueDetails();
+
+    if (!mounted) return;
+
+    setState(() {
+      queue = data;
+      loading = false;
+    });
+  }
+
+  Future<void> retryNow() async {
+    setState(() {
+      loading = true;
+    });
+
+    await AppDatabase.retrySyncQueueNow();
+
+    await loadQueue();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Kolejka synchronizacji została ponowiona.'),
+      ),
+    );
+  }
+
+  Widget queueTile(Map<String, dynamic> item) {
+    final type = item['type']?.toString() ?? '';
+    final createdAt = item['createdAt']?.toString() ?? '';
+    final retryCount = item['retryCount']?.toString() ?? '0';
+    final lastError = item['lastError']?.toString() ?? '';
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(14),
+        leading: CircleAvatar(
+          backgroundColor: lastError.isEmpty
+              ? Colors.blueGrey.shade900
+              : Colors.red.shade700,
+          child: Icon(
+            lastError.isEmpty ? Icons.sync : Icons.error,
+            color: Colors.white,
+          ),
+        ),
+        title: Text(
+          type.isEmpty ? 'Operacja synchronizacji' : type,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Text(
+          lastError.isEmpty
+              ? 'Utworzono: $createdAt\nPróby: $retryCount'
+              : 'Utworzono: $createdAt\nPróby: $retryCount\nBłąd: $lastError',
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = queue.length;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Synchronizacja'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Odśwież',
+            onPressed: loadQueue,
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: retryNow,
+        icon: const Icon(Icons.cloud_sync),
+        label: const Text('Wyślij kolejkę'),
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : queue.isEmpty
+              ? Center(
+                  child: Card(
+                    elevation: 4,
+                    margin: const EdgeInsets.all(24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle, size: 56, color: Colors.green),
+                          SizedBox(height: 14),
+                          Text(
+                            'Brak oczekujących operacji.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(12),
+                  children: [
+                    Card(
+                      color: Colors.orange.shade50,
+                      elevation: 3,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.orange.shade800,
+                          child: const Icon(Icons.pending_actions, color: Colors.white),
+                        ),
+                        title: Text(
+                          'Oczekujące operacje: $count',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: const Text(
+                          'Te operacje zostaną wysłane po odzyskaniu połączenia z serwerem.',
+                        ),
+                      ),
+                    ),
+                    ...queue.map(queueTile),
+                    const SizedBox(height: 80),
+                  ],
+                ),
+    );
+  }
+}
+
 class AdminPanelScreen extends StatelessWidget {
   const AdminPanelScreen({super.key});
 
@@ -4772,6 +4941,19 @@ class AdminPanelScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const AdminStatsScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Synchronizacja',
+            icon: Icons.sync,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SyncDiagnosticsScreen(),
                 ),
               );
             },
