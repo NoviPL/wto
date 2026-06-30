@@ -1032,7 +1032,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final readUsers =
         await AppDatabase.getMessageReadUserNames(message['id'] as int);
     final color = messageColor(level);
-    final isRead = message['isRead'] == 1;
 
     showDialog(
       context: context,
@@ -1084,14 +1083,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       ),
                     );
                   },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    height: 220,
+                    width: double.infinity,
                     child: Image.file(
                       File(imagePath),
-                      width: double.infinity,
                       fit: BoxFit.cover,
+                      cacheWidth: 900,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Text('Nie udało się wyświetlić zdjęcia');
+                        return const Center(
+                          child: Text('Nie udało się wyświetlić zdjęcia'),
+                        );
                       },
                     ),
                   ),
