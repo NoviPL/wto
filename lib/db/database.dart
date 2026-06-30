@@ -1323,6 +1323,42 @@ class AppDatabase {
     );
   }
 
+  static Future<void> deleteMessageImage(int id) async {
+    final db = await database;
+
+    final old = await db.query(
+      'message_images',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+
+    if (old.isEmpty) return;
+
+    final image = old.first;
+    final imageUuid = image['image_uuid']?.toString() ?? '';
+    final messageUuid = image['message_uuid']?.toString() ?? '';
+    final serverImagePath = image['serverImagePath']?.toString();
+    final caption = image['caption']?.toString() ?? '';
+
+    await db.update(
+      'message_images',
+      {'deleted': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (imageUuid.isNotEmpty && messageUuid.isNotEmpty) {
+      await SyncManager.sendMessageImage(
+        imageUuid: imageUuid,
+        messageUuid: messageUuid,
+        serverImagePath: serverImagePath,
+        caption: caption,
+        deleted: true,
+      );
+    }
+  }
+
   static Future<void> insertMessageImage(
     String messageUuid,
     String imagePath, {

@@ -909,6 +909,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     String selectedLevel = message['level']?.toString() ?? 'OGŁOSZENIE';
 
+      List<Map<String, dynamic>> messageImages =
+        await AppDatabase.getMessageImages(
+      message['message_uuid']?.toString() ?? '',
+    );
+
     if (selectedLevel == 'WAŻNE' && !canAddImportantMessages) {
       selectedLevel = 'ISTOTNE';
     }
@@ -974,6 +979,75 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         });
                       },
                     ),
+                    const SizedBox(height: 12),
+
+                    if (messageImages.isNotEmpty) ...[
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Zdjęcia:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: List.generate(messageImages.length, (index) {
+                          final photo = messageImages[index];
+                          final imagePath = photo['imagePath']?.toString() ?? '';
+
+                          if (imagePath.isEmpty) return const SizedBox.shrink();
+
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.file(
+                                  File(imagePath),
+                                  width: 82,
+                                  height: 82,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 300,
+                                ),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: InkWell(
+                                  onTap: () async {
+                                    await AppDatabase.deleteMessageImage(
+                                      photo['id'] as int,
+                                    );
+
+                                    final refreshed =
+                                        await AppDatabase.getMessageImages(
+                                      message['message_uuid']?.toString() ?? '',
+                                    );
+
+                                    setDialogState(() {
+                                      messageImages = refreshed;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ],
                   ],
                 ),
               ),
