@@ -7,6 +7,7 @@ import 'sync_cars.dart';
 import 'sync_car_terms.dart';
 import 'sync_car_notes.dart';
 import 'sync_messages.dart';
+import 'sync_message_images.dart';
 
 class SyncManager {
   static Future<void> syncAll() async {
@@ -18,6 +19,7 @@ class SyncManager {
     await syncCarTermsFromServer();
     await syncCarNotesFromServer();
     await syncMessagesFromServer();
+    await syncMessageImagesFromServer();
   }
 
   static Future<void> syncUsersFromServer() async {
@@ -223,6 +225,27 @@ class SyncManager {
         messageUuid: messageUuid,
         userId: userId,
         readAt: readAt,
+      );
+    });
+  }
+  static Future<void> syncMessageImagesFromServer() async {
+    await SyncMessageImages.syncFromServer();
+  }
+
+  static Future<bool> sendMessageImage({
+    required String imageUuid,
+    required String messageUuid,
+    String? serverImagePath,
+    String caption = '',
+    bool deleted = false,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncMessageImages.sendMessageImage(
+        imageUuid: imageUuid,
+        messageUuid: messageUuid,
+        serverImagePath: serverImagePath,
+        caption: caption,
+        deleted: deleted,
       );
     });
   }

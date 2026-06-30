@@ -658,8 +658,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final titleController = TextEditingController();
     final textController = TextEditingController();
     String selectedLevel = canAddImportantMessages ? 'WAŻNE' : 'ISTOTNE';
-    File? selectedImage;
-
+    List<File> selectedImages = [];
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) {
@@ -723,23 +722,54 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    if (selectedImage != null)
-                      Container(
-                        height: 160,
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.file(
-                          selectedImage!,
-                          fit: BoxFit.cover,
-                          cacheWidth: 600,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Text('Nie udało się wczytać zdjęcia'),
+                    if (selectedImages.isNotEmpty)
+                      SizedBox(
+                        height: 130,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: selectedImages.length,
+                          itemBuilder: (context, index) {
+                            final image = selectedImages[index];
+
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.file(
+                                      image,
+                                      width: 130,
+                                      height: 130,
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 400,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: InkWell(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          selectedImages.removeAt(index);
+                                        });
+                                      },
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: const Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         ),
@@ -749,16 +779,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
                     OutlinedButton.icon(
                       onPressed: () async {
-                        final picked = await ImagePicker().pickImage(
-                          source: ImageSource.gallery,
+                        final picked = await ImagePicker().pickMultiImage(
                           imageQuality: 60,
                           maxWidth: 1600,
                         );
 
-                        if (picked == null) return;
+                        if (picked.isEmpty) return;
 
                         setDialogState(() {
-                          selectedImage = File(picked.path);
+                          selectedImages.addAll(
+                            picked.map((image) => File(image.path)),
+                          );
                         });
                       },
                       icon: const Icon(Icons.photo),
@@ -783,7 +814,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       'title': title,
                       'text': text,
                       'level': selectedLevel,
-                      'imagePath': selectedImage?.path ?? '',
+                      'imagePaths': selectedImages.map((file) => file.path).join('|'),
                     });
                   },
                   child: const Text('Dodaj'),
@@ -806,7 +837,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final title = result['title'] ?? '';
     final text = result['text'] ?? '';
     final level = result['level'] ?? 'OGŁOSZENIE';
-    final imagePath = result['imagePath'] ?? '';
+    final imagePathsText = result['imagePaths'] ?? '';
+    final imagePaths = imagePathsText
+        .split('|')
+        .where((path) => path.isNotEmpty)
+        .toList();
     if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -815,14 +850,26 @@ class _MessagesScreenState extends State<MessagesScreen> {
           duration: Duration(seconds: 1),
         ),
       );
-    final sent = await AppDatabase.insertMessage(
+    final saveResult = await AppDatabase.insertMessage(
       title,
       text,
       level,
       time,
       currentUserId,
-      imagePath: imagePath.isNotEmpty ? imagePath : null,
     );
+
+    final sent = saveResult['sent'] == true;
+    final messageUuid = saveResult['messageUuid']?.toString() ?? '';
+
+    if (messageUuid.isNotEmpty) {
+      for (int i = 0; i < imagePaths.length; i++) {
+        await AppDatabase.insertMessageImage(
+          messageUuid,
+          imagePaths[i],
+          caption: 'Zdjęcie ${i + 1}',
+        );
+      }
+    }
 
     if (!mounted) return;
 

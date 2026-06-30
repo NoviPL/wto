@@ -485,7 +485,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 20,
+      version: 21,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -573,6 +573,18 @@ class AppDatabase {
             userId TEXT NOT NULL,
             readAt TEXT NOT NULL,
             UNIQUE(message_uuid, userId)
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE message_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            image_uuid TEXT UNIQUE,
+            message_uuid TEXT NOT NULL,
+            imagePath TEXT,
+            serverImagePath TEXT,
+            caption TEXT,
+            deleted INTEGER DEFAULT 0
           )
         ''');
 
@@ -899,6 +911,19 @@ class AppDatabase {
             )
           ''');
         }
+        if (oldVersion < 21) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS message_images (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              image_uuid TEXT UNIQUE,
+              message_uuid TEXT NOT NULL,
+              imagePath TEXT,
+              serverImagePath TEXT,
+              caption TEXT,
+              deleted INTEGER DEFAULT 0
+            )
+          ''');
+        }
       },
     );
   }
@@ -1190,7 +1215,7 @@ class AppDatabase {
     ''', [currentUserId]);
   }
 
-  static Future<bool> insertMessage(
+  static Future<Map<String, dynamic>> insertMessage(
     String title,
     String text,
     String level,
@@ -1237,7 +1262,125 @@ class AppDatabase {
       serverImagePath: serverImagePath,
     );
 
-    return sent;
+    return {
+      'sent': sent,
+      'messageUuid': messageUuid,
+    };
+  }
+
+  static Future<void> upsertMessageImageFromServer({
+    required String imageUuid,
+    required String messageUuid,
+    String? serverImagePath,
+    String caption = '',
+    bool deleted = false,
+  }) async {
+    if (imageUuid.isEmpty || messageUuid.isEmpty) return;
+
+    final db = await database;
+
+    if (deleted) {
+      await db.update(
+        'message_images',
+        {'deleted': 1},
+        where: 'image_uuid = ?',
+        whereArgs: [imageUuid],
+      );
+      return;
+    }
+
+    final existing = await db.query(
+      'message_images',
+      where: 'image_uuid = ?',
+      whereArgs: [imageUuid],
+      limit: 1,
+    );
+
+    String? localImagePath;
+
+    if (serverImagePath != null && serverImagePath.isNotEmpty) {
+      localImagePath = await DownloadManager.downloadFile(serverImagePath);
+    }
+
+    final oldImagePath =
+        existing.isNotEmpty ? existing.first['imagePath']?.toString() : null;
+
+    final finalImagePath = localImagePath != null && localImagePath.isNotEmpty
+        ? localImagePath
+        : oldImagePath;
+
+    await db.insert(
+      'message_images',
+      {
+        'image_uuid': imageUuid,
+        'message_uuid': messageUuid,
+        'imagePath': finalImagePath,
+        'serverImagePath': serverImagePath,
+        'caption': caption,
+        'deleted': 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> insertMessageImage(
+    String messageUuid,
+    String imagePath, {
+    String caption = '',
+  }) async {
+    if (messageUuid.isEmpty || imagePath.isEmpty) return;
+
+    final db = await database;
+    final imageUuid = const Uuid().v4();
+
+    final serverImagePath = await UploadManager.uploadFile(imagePath);
+
+    await db.insert('message_images', {
+      'image_uuid': imageUuid,
+      'message_uuid': messageUuid,
+      'imagePath': imagePath,
+      'serverImagePath': serverImagePath,
+      'caption': caption,
+      'deleted': 0,
+    });
+
+    await SyncManager.sendMessageImage(
+      imageUuid: imageUuid,
+      messageUuid: messageUuid,
+      serverImagePath: serverImagePath,
+      caption: caption,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getMessageImages(
+    String messageUuid,
+  ) async {
+    final db = await database;
+
+    return db.query(
+      'message_images',
+      where: 'message_uuid = ? AND deleted = 0',
+      whereArgs: [messageUuid],
+      orderBy: 'id ASC',
+    );
+  }
+
+  static Future<String?> getFirstMessageImagePath(String messageUuid) async {
+    final db = await database;
+
+    final result = await db.query(
+      'message_images',
+      columns: ['imagePath'],
+      where:
+          'message_uuid = ? AND deleted = 0 AND imagePath IS NOT NULL AND imagePath != ""',
+      whereArgs: [messageUuid],
+      orderBy: 'id ASC',
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first['imagePath']?.toString();
   }
 
   static Future<void> upsertMessageFromServer({

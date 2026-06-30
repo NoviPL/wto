@@ -477,4 +477,53 @@ class WtoApi {
       return false;
     }
   }
+  static Future<List<Map<String, dynamic>>> getMessageImages() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/message_images'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) return [];
+
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> sendMessageImage({
+    required String imageUuid,
+    required String messageUuid,
+    String? serverImagePath,
+    String caption = '',
+    bool deleted = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$serverUrl/message_images'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'image_uuid': imageUuid,
+          'message_uuid': messageUuid,
+          'imagePath': serverImagePath,
+          'caption': caption,
+          'deleted': deleted,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }
