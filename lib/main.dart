@@ -915,6 +915,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
       message['message_uuid']?.toString() ?? '',
     );
 
+    List<File> newImages = [];
+
     if (selectedLevel == 'WAŻNE' && !canAddImportantMessages) {
       selectedLevel = 'ISTOTNE';
     }
@@ -1049,6 +1051,37 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         }),
                       ),
                     ],
+                    const SizedBox(height: 12),
+
+                    if (newImages.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Nowe zdjęcia: ${newImages.length}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+
+                    const SizedBox(height: 8),
+
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await ImagePicker().pickMultiImage(
+                          imageQuality: 50,
+                          maxWidth: 1200,
+                        );
+
+                        if (picked.isEmpty) return;
+
+                        setDialogState(() {
+                          newImages.addAll(
+                            picked.map((image) => File(image.path)),
+                          );
+                        });
+                      },
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text('Dodaj zdjęcia'),
+                    ),
                   ],
                 ),
               ),
@@ -1093,8 +1126,21 @@ class _MessagesScreenState extends State<MessagesScreen> {
       level,
     );
 
+    final messageUuid = message['message_uuid']?.toString() ?? '';
+
+    if (messageUuid.isNotEmpty) {
+      for (int i = 0; i < newImages.length; i++) {
+        await AppDatabase.insertMessageImage(
+          messageUuid,
+          newImages[i].path,
+          caption: 'Zdjęcie ${i + 1}',
+        );
+      }
+    }
+
     await loadMessages();
   }
+
 
   Future<void> openMessage(Map<String, dynamic> message) async {
     if (message['isRead'] != 1) {
@@ -1197,6 +1243,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   }),
                 ),
               ],
+              
               const SizedBox(height: 18),
               Text(
                 '$dateTime\n$userName',
