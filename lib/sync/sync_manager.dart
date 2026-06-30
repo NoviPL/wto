@@ -104,6 +104,16 @@ class SyncManager {
     });
   }
 
+  static Future<bool> deleteYear({
+    required int year,
+  }) async {
+    return SyncQueue.run(() {
+      return SyncYears.deleteYear(year: year);
+    }, type: 'delete_year', payload: {
+      'year': year,
+    });
+  }
+
   static Future<bool> sendTask({
     required int year,
     required String number,

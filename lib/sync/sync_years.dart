@@ -11,4 +11,10 @@ class SyncYears {
   }) async {
     return WtoApi.sendYear(year: year);
   }
+
+  static Future<bool> deleteYear({
+    required int year,
+  }) async {
+    return WtoApi.deleteYear(year: year);
+  }
 }

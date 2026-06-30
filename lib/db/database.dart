@@ -1204,6 +1204,8 @@ class AppDatabase {
       whereArgs: [year],
     );
 
+    await SyncManager.deleteYear(year: year);
+
     await addChangeLog(
       entityType: 'Rok',
       entityId: year.toString(),
@@ -3038,6 +3040,11 @@ class AppDatabase {
           messageUuid: payload['messageUuid']?.toString() ?? '',
           userId: payload['userId']?.toString() ?? '',
           readAt: payload['readAt']?.toString() ?? '',
+        );
+
+      case 'delete_year':
+        return WtoApi.deleteYear(
+          year: int.tryParse(payload['year']?.toString() ?? '') ?? 0,
         );
 
       default:

@@ -208,6 +208,20 @@ class WtoApi {
     }
   }
 
+  static Future<bool> deleteYear({
+    required int year,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$serverUrl/years/$year'),
+      ).timeout(const Duration(seconds: 5));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getTasks() async {
     try {
       final response = await http
