@@ -13,21 +13,7 @@ import 'sync/server_backup_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SyncManager.syncAll();
-  
-  final user = await AppDatabase.getCurrentUser();
-
-  if (user != null) {
-    currentUserId = user['id']?.toString() ?? 'USER_001';
-    currentUserName =
-        user['name']?.toString() ?? 'Użytkownik 1';
-  }
-
-  void main() {
-    WidgetsFlutterBinding.ensureInitialized();
-
-    runApp(const WTOApp());
-  }
+  runApp(const WTOApp());
 }
 
 class WTOApp extends StatelessWidget {
