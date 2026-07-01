@@ -3154,4 +3154,31 @@ class AppDatabase {
 
     await db.delete('sync_history');
   }
+  static Future<void> setLastLoginUserId(String userId) async {
+    final db = await database;
+
+    await db.insert(
+      'app_settings',
+      {
+        'key': 'lastLoginUserId',
+        'value': userId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<String?> getLastLoginUserId() async {
+    final db = await database;
+
+    final result = await db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['lastLoginUserId'],
+      limit: 1,
+    );
+
+    if (result.isEmpty) return null;
+
+    return result.first['value']?.toString();
+  }
 }

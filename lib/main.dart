@@ -8,7 +8,7 @@ import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
 import 'sync/sync_manager.dart';
 import 'sync/server_backup_service.dart';
-import 'sync/auto_sync_service.dart';
+import 'widgets/main_menu_button.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,12 +59,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> loadUsers() async {
     final data = await AppDatabase.getUsers();
+    final lastUserId = await AppDatabase.getLastLoginUserId();
 
     if (!mounted) return;
 
     setState(() {
       users = data;
-      if (data.isNotEmpty) {
+
+      final exists = data.any(
+        (user) => user['id']?.toString() == lastUserId,
+      );
+
+      if (exists) {
+        selectedUserId = lastUserId;
+      } else if (data.isNotEmpty) {
         selectedUserId = data.first['id']?.toString();
       }
     });
@@ -193,6 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     await AppDatabase.setCurrentUserId(userId);
+    await AppDatabase.setLastLoginUserId(userId);
 
     currentUserId = userId;
     currentUserName = userName;
@@ -381,7 +390,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   void initState() {
     super.initState();
 
-    AutoSyncService.start();
 
     loadCurrentUser();
     loadUnreadMessagesCount();
@@ -418,7 +426,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
         onPressed: () async {
-          AutoSyncService.stop();
 
           await AppDatabase.logout();
 
@@ -475,7 +482,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ),
                   const Spacer(),
-                  _MainMenuButton(
+                  MainMenuButton(
                     title: 'ZADANIA',
                     icon: Icons.assignment,
                     onTap: () {
@@ -488,7 +495,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _MainMenuButton(
+                  MainMenuButton(
                     title: 'FLOTA',
                     icon: Icons.directions_car,
                     onTap: () {
@@ -501,7 +508,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _MainMenuButton(
+                  MainMenuButton(
                     title: unreadMessagesCount > 0
                         ? 'KOMUNIKATY ($unreadMessagesCount)'
                         : 'KOMUNIKATY',
@@ -520,7 +527,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   
                   if (isAdmin) ...[
                     const SizedBox(height: 16),
-                    _MainMenuButton(
+                    MainMenuButton(
                       title: 'PANEL ADMINA',
                       icon: Icons.admin_panel_settings,
                       onTap: () {
@@ -534,7 +541,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  _MainMenuButton(
+                  MainMenuButton(
                     title: 'INNE',
                     icon: Icons.more_horiz,
                     onTap: () {
@@ -557,37 +564,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 }
 
-class _MainMenuButton extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _MainMenuButton({
-    required this.title,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 64,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 28),
-        label: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class YearsScreen extends StatefulWidget {
   const YearsScreen({super.key});
@@ -1784,16 +1760,7 @@ class OtherScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  AutoSyncService.isRunning
-                      ? 'Auto-sync: włączony'
-                      : 'Auto-sync: wyłączony',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
-                ),
+                
                 const SizedBox(height: 12),
                 Text(
                   'internal build',
