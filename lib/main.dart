@@ -11,6 +11,7 @@ import 'sync/server_backup_service.dart';
 import 'widgets/main_menu_button.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/server_status_screen.dart';
+import 'screens/app_version_screen.dart';
 
 
 Future<void> main() async {
@@ -4904,6 +4905,19 @@ class AdminPanelScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const ServerStatusScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Wersja aplikacji',
+            icon: Icons.system_update,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AppVersionScreen(),
                 ),
               );
             },

@@ -1,0 +1,131 @@
+import 'package:flutter/material.dart';
+import '../api/wto_api.dart';
+
+class AppVersionScreen extends StatefulWidget {
+  const AppVersionScreen({super.key});
+
+  @override
+  State<AppVersionScreen> createState() => _AppVersionScreenState();
+}
+
+class _AppVersionScreenState extends State<AppVersionScreen> {
+  Map<String, dynamic>? version;
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadVersion();
+  }
+
+  Future<void> loadVersion() async {
+    setState(() {
+      loading = true;
+    });
+
+    final result = await WtoApi.getAppVersion();
+
+    if (!mounted) return;
+
+    setState(() {
+      version = result;
+      loading = false;
+    });
+  }
+
+  String valueText(dynamic value) {
+    if (value == null) return '-';
+    return value.toString();
+  }
+
+  Widget infoTile(String title, String value, IconData icon) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(14),
+        leading: CircleAvatar(
+          backgroundColor: Colors.blueGrey.shade900,
+          child: Icon(icon, color: Colors.white),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(value),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = version;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: const Text('Wersja aplikacji'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: loadVersion,
+          ),
+        ],
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : data == null
+              ? const Center(
+                  child: Text(
+                    'Nie udało się pobrać informacji o wersji.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(12),
+                  children: [
+                    infoTile(
+                      'Dostępna wersja',
+                      'v${valueText(data['version'])}',
+                      Icons.system_update,
+                    ),
+                    infoTile(
+                      'Build',
+                      valueText(data['build']),
+                      Icons.numbers,
+                    ),
+                    infoTile(
+                      'Plik APK',
+                      valueText(data['apk']),
+                      Icons.android,
+                    ),
+                    infoTile(
+                      'Aktualizacja obowiązkowa',
+                      valueText(data['mandatory']),
+                      Icons.warning_amber,
+                    ),
+                    infoTile(
+                      'Opis zmian',
+                      valueText(data['description']),
+                      Icons.description,
+                    ),
+                    infoTile(
+                      'Data wydania',
+                      valueText(data['release_date']),
+                      Icons.calendar_month,
+                    ),
+                    infoTile(
+                      'Minimalna wersja serwera',
+                      valueText(data['min_server_version']),
+                      Icons.dns,
+                    ),
+                  ],
+                ),
+    );
+  }
+}
