@@ -10,6 +10,7 @@ import 'sync/sync_manager.dart';
 import 'sync/server_backup_service.dart';
 import 'widgets/main_menu_button.dart';
 import 'screens/main_menu_screen.dart';
+import 'screens/server_status_screen.dart';
 
 
 Future<void> main() async {
@@ -4890,6 +4891,19 @@ class AdminPanelScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const SyncDiagnosticsScreen(),
+                ),
+              );
+            },
+          ),
+          adminTile(
+            context: context,
+            title: 'Stan serwera',
+            icon: Icons.monitor_heart,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ServerStatusScreen(),
                 ),
               );
             },

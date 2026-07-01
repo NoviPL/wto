@@ -542,4 +542,23 @@ class WtoApi {
       return false;
     }
   }
+  static Future<Map<String, dynamic>?> getServerStatus() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/status'))
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is! Map) return null;
+
+      return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
 }
