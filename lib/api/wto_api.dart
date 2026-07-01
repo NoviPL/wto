@@ -599,4 +599,38 @@ class WtoApi {
       return false;
     }
   }
+  static Future<bool> uploadLatestApk({
+    required String filePath,
+    required String version,
+    required int build,
+    required String description,
+    required bool mandatory,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$serverUrl/app/upload'),
+      );
+
+      request.fields['version'] = version;
+      request.fields['build'] = build.toString();
+      request.fields['description'] = description;
+      request.fields['mandatory'] = mandatory.toString();
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'apk',
+          filePath,
+        ),
+      );
+
+      final response = await request.send().timeout(
+        const Duration(minutes: 3),
+      );
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (_) {
+      return false;
+    }
+  }
 }

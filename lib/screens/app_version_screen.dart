@@ -56,9 +56,7 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
 
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nie udało się pobrać APK.'),
-          ),
+          const SnackBar(content: Text('Nie udało się pobrać APK.')),
         );
         return;
       }
@@ -69,9 +67,7 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Plik APK nie istnieje po pobraniu.'),
-          ),
+          const SnackBar(content: Text('Plik APK nie istnieje po pobraniu.')),
         );
         return;
       }
@@ -182,8 +178,7 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton.icon(
-                        onPressed:
-                            downloading ? null : downloadAndInstallApk,
+                        onPressed: downloading ? null : downloadAndInstallApk,
                         icon: downloading
                             ? const SizedBox(
                                 width: 22,
