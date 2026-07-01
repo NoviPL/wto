@@ -48,7 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    loadUsers();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadUsersWithSync();
+    });
   }
 
   Future<void> loadUsers() async {
@@ -62,6 +65,24 @@ class _LoginScreenState extends State<LoginScreen> {
         selectedUserId = data.first['id']?.toString();
       }
     });
+  }
+
+  Future<void> loadUsersWithSync() async {
+    try {
+      await SyncManager.syncUsersFromServer();
+      await SyncManager.syncYearsFromServer();
+      await SyncManager.syncTasksFromServer();
+      await SyncManager.syncEntriesFromServer();
+      await SyncManager.syncCarsFromServer();
+      await SyncManager.syncCarTermsFromServer();
+      await SyncManager.syncCarNotesFromServer();
+      await SyncManager.syncMessagesFromServer();
+      await SyncManager.syncMessageImagesFromServer();
+    } catch (e) {
+      debugPrint('Błąd synchronizacji przy starcie: $e');
+    }
+
+    await loadUsers();
   }
 
   Future<void> login() async {
@@ -93,6 +114,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     currentUserId = userId;
     currentUserName = userName;
+
+    try {
+      await SyncManager.syncAll();
+    } catch (e) {
+      debugPrint('Błąd synchronizacji po logowaniu: $e');
+    }
 
     if (!mounted) return;
 
