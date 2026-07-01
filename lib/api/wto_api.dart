@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class WtoApi {
   static String serverUrl = 'http://10.119.82.46:8000';
@@ -578,6 +579,24 @@ class WtoApi {
       return Map<String, dynamic>.from(decoded);
     } catch (_) {
       return null;
+    }
+  }
+  static Future<bool> downloadLatestApk(String savePath) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$serverUrl/app/download'))
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
+
+      final file = File(savePath);
+      await file.writeAsBytes(response.bodyBytes, flush: true);
+
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 }

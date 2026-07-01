@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../api/wto_api.dart';
 
 class AppVersionScreen extends StatefulWidget {
@@ -11,6 +16,7 @@ class AppVersionScreen extends StatefulWidget {
 class _AppVersionScreenState extends State<AppVersionScreen> {
   Map<String, dynamic>? version;
   bool loading = true;
+  bool downloading = false;
 
   @override
   void initState() {
@@ -31,6 +37,53 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
       version = result;
       loading = false;
     });
+  }
+
+  Future<void> downloadAndInstallApk() async {
+    if (downloading) return;
+
+    setState(() {
+      downloading = true;
+    });
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final filePath = '${dir.path}/WTO_latest.apk';
+
+      final ok = await WtoApi.downloadLatestApk(filePath);
+
+      if (!mounted) return;
+
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nie udało się pobrać APK.'),
+          ),
+        );
+        return;
+      }
+
+      final file = File(filePath);
+
+      if (!await file.exists()) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Plik APK nie istnieje po pobraniu.'),
+          ),
+        );
+        return;
+      }
+
+      await OpenFilex.open(filePath);
+    } finally {
+      if (mounted) {
+        setState(() {
+          downloading = false;
+        });
+      }
+    }
   }
 
   String valueText(dynamic value) {
@@ -124,6 +177,34 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                       valueText(data['min_server_version']),
                       Icons.dns,
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            downloading ? null : downloadAndInstallApk,
+                        icon: downloading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.download),
+                        label: Text(
+                          downloading
+                              ? 'Pobieranie...'
+                              : 'Pobierz i zainstaluj APK',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 80),
                   ],
                 ),
     );
