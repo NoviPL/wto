@@ -481,13 +481,75 @@ class AppDatabase {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
+  static Future<void> _createIndexes(Database db) async {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_entries_number ON entries(number)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_entries_uuid ON entries(entry_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_tasks_year ON tasks(year)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_tasks_year_number ON tasks(year, number)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_cars_uuid ON cars(car_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_car_notes_carId_section ON car_notes(carId, section)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_car_notes_uuid ON car_notes(car_note_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_car_terms_carId ON car_terms(carId)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_messages_uuid ON messages(message_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_messages_deleted_level ON messages(deleted, level)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_reads_uuid_user ON message_reads(message_uuid, userId)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_images_message_uuid ON message_images(message_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_message_images_uuid ON message_images(image_uuid)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_change_logs_id ON change_logs(id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sync_queue_id ON sync_queue(id)',
+    );
+  }
+
   static Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'wto.db');
 
     return openDatabase(
       path,
-      version: 22,
+      version: 23,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE entries (
@@ -660,6 +722,8 @@ class AppDatabase {
 
         await db.insert('years', {'year': 2025});
         await db.insert('years', {'year': 2026});
+        await _createIndexes(db);
+
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -966,6 +1030,9 @@ class AppDatabase {
               details TEXT
             )
           ''');
+        }
+        if (oldVersion < 23) {
+          await _createIndexes(db);
         }
       },
     );
