@@ -8,7 +8,7 @@ import 'package:gal/gal.dart';
 import 'api/wto_api.dart';
 import 'sync/sync_manager.dart';
 import 'sync/server_backup_service.dart';
-//import 'sync/auto_sync_service.dart';
+import 'sync/auto_sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -381,6 +381,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   void initState() {
     super.initState();
 
+    AutoSyncService.start();
+
     loadCurrentUser();
     loadUnreadMessagesCount();
   }
@@ -416,6 +418,8 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
         onPressed: () async {
+          AutoSyncService.stop();
+
           await AppDatabase.logout();
 
           currentUserId = 'USER_001';
@@ -1778,6 +1782,16 @@ class OtherScreen extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  AutoSyncService.isRunning
+                      ? 'Auto-sync: włączony'
+                      : 'Auto-sync: wyłączony',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 12),
