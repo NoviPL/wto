@@ -44,6 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
   List<Map<String, dynamic>> users = [];
   String? selectedUserId;
   final pinController = TextEditingController();
+  bool isInitialLoading = false;
+  double loadingProgress = 0.0;
+  String loadingText = 'Przygotowywanie aplikacji...';
 
   @override
   void initState() {
@@ -68,21 +71,100 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> loadUsersWithSync() async {
-    try {
-      await SyncManager.syncUsersFromServer();
-      await SyncManager.syncYearsFromServer();
-      await SyncManager.syncTasksFromServer();
-      await SyncManager.syncEntriesFromServer();
-      await SyncManager.syncCarsFromServer();
-      await SyncManager.syncCarTermsFromServer();
-      await SyncManager.syncCarNotesFromServer();
-      await SyncManager.syncMessagesFromServer();
-      await SyncManager.syncMessageImagesFromServer();
-    } catch (e) {
-      debugPrint('Błąd synchronizacji przy starcie: $e');
+    if (!mounted) return;
+
+    setState(() {
+      isInitialLoading = true;
+      loadingProgress = 0.0;
+      loadingText = 'Łączenie z serwerem...';
+    });
+
+    Future<void> step(
+      String text,
+      double progress,
+      Future<void> Function() action,
+    ) async {
+      if (!mounted) return;
+
+      setState(() {
+        loadingText = text;
+        loadingProgress = progress;
+      });
+
+      try {
+        await action();
+      } catch (e) {
+        debugPrint('Błąd etapu "$text": $e');
+      }
     }
 
-    await loadUsers();
+    await step(
+      'Synchronizacja użytkowników...',
+      0.10,
+      () => SyncManager.syncUsersFromServer(),
+    );
+
+    await step(
+      'Synchronizacja lat...',
+      0.20,
+      () => SyncManager.syncYearsFromServer(),
+    );
+
+    await step(
+      'Synchronizacja zadań...',
+      0.30,
+      () => SyncManager.syncTasksFromServer(),
+    );
+
+    await step(
+      'Synchronizacja wpisów...',
+      0.40,
+      () => SyncManager.syncEntriesFromServer(),
+    );
+
+    await step(
+      'Synchronizacja floty...',
+      0.50,
+      () => SyncManager.syncCarsFromServer(),
+    );
+
+    await step(
+      'Synchronizacja terminów floty...',
+      0.60,
+      () => SyncManager.syncCarTermsFromServer(),
+    );
+
+    await step(
+      'Synchronizacja notatek floty...',
+      0.70,
+      () => SyncManager.syncCarNotesFromServer(),
+    );
+
+    await step(
+      'Synchronizacja komunikatów...',
+      0.82,
+      () => SyncManager.syncMessagesFromServer(),
+    );
+
+    await step(
+      'Synchronizacja zdjęć komunikatów...',
+      0.92,
+      () => SyncManager.syncMessageImagesFromServer(),
+    );
+
+    await step(
+      'Wczytywanie użytkowników...',
+      0.98,
+      () => loadUsers(),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      loadingProgress = 1.0;
+      loadingText = 'Gotowe';
+      isInitialLoading = false;
+    });
   }
 
   Future<void> login() async {
@@ -155,6 +237,43 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (isInitialLoading) ...[
+                      const Icon(
+                        Icons.sync,
+                        size: 64,
+                        color: Colors.blueGrey,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Ładowanie aplikacji',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      LinearProgressIndicator(
+                        value: loadingProgress,
+                        minHeight: 8,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '${(loadingProgress * 100).toInt()}%',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        loadingText,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ] else ...[
                     const Icon(
                       Icons.lock,
                       size: 64,
@@ -235,6 +354,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontSize: 12,
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),
